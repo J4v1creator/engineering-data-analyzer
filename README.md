@@ -1,0 +1,3 @@
+# Engineering Data Analyzer
+
+Engineering Data Analyzer is a Python project focused on analyzing real-world engineering datasets. Its goal is to automate the loading, cleaning, analysis, visualization, and reporting of data, helping engineers extract valuable insights from technical data. The project is designed as a learning experience, following professional software development practices and creating a modular and scalable application.
