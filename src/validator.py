@@ -31,14 +31,21 @@ def validate_dataset(df: pd.DataFrame) -> bool:
     print("✅ All required columns found.")
     
     # 2. Check for incorrect data types
-    # Note: We check if the column can be aligned or matches expected types
     for col, expected_type in EXPECTED_COLUMNS.items():
+        # Flexibly handle text columns (both object and string/str are valid for text)
+        if expected_type in ["object", "str"]:
+            if not (pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_string_dtype(df[col])):
+                raise ValueError(f"❌ Validation failed: Column '{col}' type is {df[col].dtype}, expected text (object/str)")
+            continue
+
+        # Safe check fallback for datetimes with timezones
+        if col == "datetime" and isinstance(df[col].dtype, pd.DatetimeTZDtype):
+            continue
+
         if not pd.api.types.is_dtype_equal(df[col].dtype, expected_type):
-            # Safe check fallback for datetimes with timezones
-            if col == "datetime" and isinstance(df[col].dtype, pd.DatetimeTZDtype):
-                continue
             raise ValueError(f"❌ Validation failed: Column '{col}' type is {df[col].dtype}, expected {expected_type}")
-    print("✅ All data types are correct.")
+        
+        print("✅ All data types are correct.")
 
     # 3. Check for missing values (NaNs)
     missing_values = df.isnull().sum().sum()
