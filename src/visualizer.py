@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import os
 
-def plot_energy_demand(df: pd.DataFrame, output_dir: str = "output") -> str:
+def plot_energy_demand(df: pd.DataFrame, output_dir: str = "data/processed") -> str:
     """
     Generates a line plot of electricity demand over time and saves it as a PNG file.
     
