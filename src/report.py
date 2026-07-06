@@ -28,7 +28,7 @@ def generate_text_report(df: pd.DataFrame, stats: dict, output_dir: str = "data/
     num_rows, num_cols = df.shape
     column_names = ', '.join(df.columns)
 
-    # 4. Cabecera y Metadatos del informe
+    # 4. Report Header and Metadata
     report_content = f"""==================================================
 ENERGY CONSUMPTION ANALYSIS REPORT (AUTOMATED)
 ==================================================
@@ -46,9 +46,11 @@ Data Source:       Red Eléctrica de España (REE)
 2. STATISTICAL SUMMARY (DEMAND IN MW)
 --------------------------------------------------"""
 
-    # 5. Iterar sobre las estadísticas y añadirlas directamente al contenido
-    for demand_name, metrics in stats.items():
-        report_content += f"""
+    # 5. Iterate over the statistics and add them directly to the content
+    for demand_name in pd.unique(df["name"]):
+        if demand_name in stats:
+            metrics = stats[demand_name]
+            report_content += f"""
 --- {demand_name.upper()} ---
 - Maximum Demand:  {metrics['max']} MW (At: {metrics['peak_time']})
 - Minimum Demand:  {metrics['min']} MW

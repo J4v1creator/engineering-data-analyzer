@@ -4,6 +4,7 @@ from src.validator import validate_dataset
 from src.analyzer import calculate_energy_statistics
 from src.visualizer import plot_energy_demand
 from src.report import generate_text_report
+from src.interface import get_user_demand_selection
 
 def main():
     print("==================================================")
@@ -21,14 +22,18 @@ def main():
         # 3. Validate: Quality check firewall
         validate_dataset(df)
 
-        # 4. Analyze: Calculate statistical metrics
-        stats = calculate_energy_statistics(df)
+        # 4. Interactive Menu: Ask user for specific demand types to analyze
+        selected_types = get_user_demand_selection(df)
+        df_filtered = df[df["name"].isin(selected_types)]
 
-        # 5. Visualize: Generate and save plot
-        plot_path = plot_energy_demand(df)
+        # 5. Analyze: Calculate statistical metrics on filtered data
+        stats = calculate_energy_statistics(df_filtered)
 
-        # 6. Report: Generate automated text summary
-        report_path = generate_text_report(df, stats)
+        # 6. Visualize: Generate and save plot on filtered data
+        plot_path = plot_energy_demand(df_filtered)
+
+        # 7. Report: Generate automated text summary on filtered data
+        report_path = generate_text_report(df_filtered, stats)
 
         print("\n==================================================")
         print("🎉 [SUCCESS] Pipeline executed perfectly!")
