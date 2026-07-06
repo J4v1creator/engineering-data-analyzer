@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import os
 from zoneinfo import ZoneInfo
+from src.constants import DEMAND_TRANSLATIONS
 
 def plot_energy_demand(df: pd.DataFrame, output_dir: str = "data/processed") -> str:
     """
@@ -27,12 +28,12 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str = "data/processed") -> 
     plt.figure(figsize=(14, 7))
     plt.style.use('seaborn-v0_8-whitegrid')  # Clean and modern grid style
 
-    # 3. Single Source of Truth for Translation and Color Mapping
+    # 3. Color mapping for each category (Labels are loaded dynamically from constants)
     demand_config = {
-        "Demanda real": {"label": "Real Demand", "color": "#1f77b4"},
-        "Demanda prevista": {"label": "Forecasted Demand", "color": "#ff7f0e"},
-        "Demanda programada": {"label": "Scheduled Demand", "color": "#2ca02c"},
-        "Demanda Programada Total Peninsular": {"label": "Total Peninsular Scheduled Demand", "color": "#d62728"}
+        "Demanda real": {"color": "#1f77b4"},
+        "Demanda prevista": {"color": "#ff7f0e"},
+        "Demanda programada": {"color": "#2ca02c"},
+        "Demanda programada total peninsular": {"color": "#d62728"}
     }
 
     # 4. Group by 'name' and plot each line separately
@@ -43,12 +44,15 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str = "data/processed") -> 
         # Get configuration or use fallbacks for unexpected new categories
         config = demand_config.get(name_spanish, {"label": name_spanish, "color": "#7f7f7f"})
 
+        # Dynamic label fetched from the centralized DEMAND_TRANSLATIONS dictionary
+        english_label = DEMAND_TRANSLATIONS.get(name_spanish, name_spanish)
+
         plt.plot(
             group_sorted["datetime"], 
             group_sorted["value"], 
             color=config["color"], 
             linewidth=2, 
-            label=config["label"]
+            label=english_label
         )
 
     # 5. Format titles and labels

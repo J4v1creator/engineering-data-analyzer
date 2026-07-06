@@ -16,7 +16,7 @@ def calculate_energy_statistics(df: pd.DataFrame) -> dict:
     stats_per_type = {}
 
     # Group by 'name' to isolate each demand type (Real, Prevista, Programada...)
-    for name_type, group_df in df.groupby("name"):
+    for name_type, group_df in df.groupby("name", sort=False):
         values = group_df["value"]
 
         # Find the exact time when the maximum peak occurred for this specific group

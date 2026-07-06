@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import datetime
 import os
+from src.constants import DEMAND_TRANSLATIONS
 
 def generate_text_report(df: pd.DataFrame, stats: dict, output_dir: str = "data/processed") -> str:
     """
@@ -50,8 +51,12 @@ Data Source:       Red Eléctrica de España (REE)
     for demand_name in pd.unique(df["name"]):
         if demand_name in stats:
             metrics = stats[demand_name]
+
+            # Use the imported constant dictionary
+            english_name = DEMAND_TRANSLATIONS.get(demand_name, demand_name)
+
             report_content += f"""
---- {demand_name.upper()} ---
+--- {english_name.upper()} ---
 - Maximum Demand:  {metrics['max']} MW (At: {metrics['peak_time']})
 - Minimum Demand:  {metrics['min']} MW
 - Mean (Average):  {metrics['mean']:.2f} MW
