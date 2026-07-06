@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import os
+from zoneinfo import ZoneInfo
 
 def plot_energy_demand(df: pd.DataFrame, output_dir: str = "data/processed") -> str:
     """
@@ -58,7 +59,8 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str = "data/processed") -> 
     # 6. Advanced date formatting for the X-axis to keep it readable
     ax = plt.gca()
     # Format ticks to show Hours:Minutes
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M\n%Y-%m-%d'))
+    spain_tz = ZoneInfo("Europe/Madrid")
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M\n%Y-%m-%d', tz=spain_tz))
     # Adjust spacing automatically so labels don't overlap
     plt.gcf().autofmt_xdate()
 
