@@ -1,10 +1,11 @@
+import pandas as pd
 import sys
 from src.loader import load_csv_data
 from src.validator import validate_dataset
 from src.analyzer import calculate_energy_statistics, compare_demand_models
 from src.visualizer import plot_energy_demand
 from src.report import generate_text_report
-from src.interface import get_user_demand_selection
+from src.interface import get_user_demand_selection, ask_comparison_targets
 
 def main():
     print("==================================================")
@@ -23,14 +24,24 @@ def main():
         validate_dataset(df)
 
         # 4. Interactive Menu: Ask user for specific demand types to analyze
+        all_available_demands = list(pd.unique(df["name"]))
         selected_types = get_user_demand_selection(df)
         df_filtered = df[df["name"].isin(selected_types)]
+
+        # Determine comparison targets based on user choices
+        comparison_targets = None
+        if len(selected_types) == 2:
+            # If exactly 2, map them automatically
+            comparison_targets = (selected_types[0], selected_types[1])
+        elif len(selected_types) > 2:
+            # If more than 2, trigger the new sub-menu!
+            comparison_targets = ask_comparison_targets(all_available_demands, selected_types)
 
         # 5. Analyze: Calculate statistical metrics on filtered data
         stats = calculate_energy_statistics(df_filtered)
 
         # 5b. Analyze: Advanced comparison between selected models
-        comp_stats = compare_demand_models(df_filtered)
+        comp_stats = compare_demand_models(df_filtered, comparison_targets)
 
         # 6. Visualize: Generate and save plot on filtered data
         plot_path = plot_energy_demand(df_filtered)

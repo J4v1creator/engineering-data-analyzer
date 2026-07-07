@@ -50,3 +50,47 @@ def get_user_demand_selection(df) -> list:
 
         except ValueError:
             print("❌ Input format error. Please use numbers separated by commas only (e.g., 1,2).")
+
+def ask_comparison_targets(all_demands: list, selected_demands: list) -> tuple:
+    """
+    Prompts the user to select exactly two demand types for the advanced 
+    comparison out of the previously selected options.
+
+    Args:
+        selected_demands (list): A list of strings containing the names of the 
+        demands previously selected by the user.
+
+    Returns:
+        tuple: A tuple containing two strings (model_a, model_b) with the names 
+        of the two distinct demand types chosen for comparison.
+    """
+    print("\n🔍 --- ADVANCED COMPARISON SELECTION ---")
+    print("You selected multiple demands. Which two would you like to cross-analyze?")
+
+    # 1. Create a map to link the global index (1-based) to each selected demand
+    indexed_selection = {}
+    for demand in selected_demands:
+        global_idx = all_demands.index(demand) + 1
+        indexed_selection[global_idx] = demand
+        print(f"  [{global_idx}] {demand}")
+
+    while True:
+        try:
+            user_input = input("\nSelect exactly two numbers separated by a comma (e.g., 1,2): ").strip()
+            indices = [int(x.strip()) for x in user_input.split(",")]
+
+            # Validate we got exactly two numbers and both are inside our allowed selection map
+            if len(indices) == 2 and all(idx in indexed_selection for idx in indices):
+                # Ensure they didn't pick the exact same number twice (e.g., 1,1)
+                if indices[0] == indices[1]:
+                    print("❌ You cannot compare a demand type against itself. Please pick two different ones.")
+                    continue
+
+                model_a = indexed_selection[indices[0]]
+                model_b = indexed_selection[indices[1]]
+                return model_a, model_b
+            else:
+                valid_options = ", ".join(map(str, indexed_selection.keys()))
+                print(f"❌ Invalid choice. Please enter exactly two numbers from your active options: [{valid_options}].")
+        except ValueError:
+            print("❌ Input format error. Please use numbers separated by commas only (e.g., 1,2).")
