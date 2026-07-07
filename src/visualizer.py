@@ -33,7 +33,7 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str = "data/processed") -> 
         "Demanda real": {"color": "#1f77b4"},
         "Demanda prevista": {"color": "#ff7f0e"},
         "Demanda programada": {"color": "#2ca02c"},
-        "Demanda programada total peninsular": {"color": "#d62728"}
+        "Demanda Programada Total Peninsular": {"color": "#d62728"}
     }
 
     # 4. Group by 'name' and plot each line separately

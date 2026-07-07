@@ -7,5 +7,5 @@ DEMAND_TRANSLATIONS = {
     "Demanda real": "Real-Time Demand",
     "Demanda prevista": "Programmed Demand",
     "Demanda programada": "Scheduled Demand",
-    "Demanda programada total peninsular": "Total Peninsular Scheduled Demand"
+    "Demanda Programada Total Peninsular": "Total Peninsular Scheduled Demand"
 }

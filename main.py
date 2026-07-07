@@ -1,7 +1,7 @@
 import sys
 from src.loader import load_csv_data
 from src.validator import validate_dataset
-from src.analyzer import calculate_energy_statistics
+from src.analyzer import calculate_energy_statistics, compare_demand_models
 from src.visualizer import plot_energy_demand
 from src.report import generate_text_report
 from src.interface import get_user_demand_selection
@@ -29,11 +29,14 @@ def main():
         # 5. Analyze: Calculate statistical metrics on filtered data
         stats = calculate_energy_statistics(df_filtered)
 
+        # 5b. Analyze: Advanced comparison between selected models
+        comp_stats = compare_demand_models(df_filtered)
+
         # 6. Visualize: Generate and save plot on filtered data
         plot_path = plot_energy_demand(df_filtered)
 
         # 7. Report: Generate automated text summary on filtered data
-        report_path = generate_text_report(df_filtered, stats)
+        report_path = generate_text_report(df_filtered, stats, comp_stats)
 
         print("\n==================================================")
         print("🎉 [SUCCESS] Pipeline executed perfectly!")
