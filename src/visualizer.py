@@ -1,14 +1,13 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 import os
 from zoneinfo import ZoneInfo
-from src.constants import DEMAND_TRANSLATIONS
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import pandas as pd
+from src.constants import DEMAND_COLOR_PALETTE, DEMAND_TRANSLATIONS
 
 def plot_energy_demand(df: pd.DataFrame, output_dir: str = "data/processed") -> str:
-    """
-    Generates a multi-line plot of electricity demand over time, 
-    separating different demand types by the 'name' column.
+    """Generates a multi-line plot of electricity demand over time.
+    Separates different demand types by the 'name' column.
     
     Args:
         df (pd.DataFrame): The validated dataset containing 'datetime', 'value', and 'name'.
@@ -19,30 +18,22 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str = "data/processed") -> 
     """
     print("\n📉 Generating multi-line electricity demand visualization...")
 
-    # 1. Ensure the output directory exists
+    # Ensure the output directory exists
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         print(f"📁 Created output directory at: '{output_dir}'")
 
-    # 2. Setup the plot figure size and style
+    # Setup the plot figure size and style
     plt.figure(figsize=(14, 7))
     plt.style.use('seaborn-v0_8-whitegrid')  # Clean and modern grid style
 
-    # 3. Color mapping for each category (Labels are loaded dynamically from constants)
-    demand_config = {
-        "Demanda real": {"color": "#1f77b4"},
-        "Demanda prevista": {"color": "#ff7f0e"},
-        "Demanda programada": {"color": "#2ca02c"},
-        "Demanda Programada Total Peninsular": {"color": "#d62728"}
-    }
-
-    # 4. Group by 'name' and plot each line separately
+    # Group by 'name' and plot each line separately
     for name_spanish, group_df in df.groupby("name"):
         # Sort by datetime just in case the data is shuffled
         group_sorted = group_df.sort_values("datetime")
 
-        # Get configuration or use fallbacks for unexpected new categories
-        config = demand_config.get(name_spanish, {"label": name_spanish, "color": "#7f7f7f"})
+        # Get color configuration from constants or apply the fallback color
+        config = DEMAND_COLOR_PALETTE.get(name_spanish, DEMAND_COLOR_PALETTE["default"])
 
         # Dynamic label fetched from the centralized DEMAND_TRANSLATIONS dictionary
         english_label = DEMAND_TRANSLATIONS.get(name_spanish, name_spanish)
@@ -55,25 +46,24 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str = "data/processed") -> 
             label=english_label
         )
 
-    # 5. Format titles and labels
+    # Format titles and labels
     plt.title("Spanish Peninsula Electricity Demand Comparison", fontsize=14, fontweight="bold", pad=15)
     plt.xlabel("Time (HH:MM / Date)", fontsize=11, labelpad=10)
     plt.ylabel("Electricity Demand (MW)", fontsize=11, labelpad=10)
 
-    # 6. Advanced date formatting for the X-axis to keep it readable
+    # Advanced date formatting for the X-axis to keep it readable
     ax = plt.gca()
-    # Format ticks to show Hours:Minutes
     spain_tz = ZoneInfo("Europe/Madrid")
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M\n%Y-%m-%d', tz=spain_tz))
+
     # Adjust spacing automatically so labels don't overlap
     plt.gcf().autofmt_xdate()
 
-    # 7. Add legend and optimize layout
-    # Place legend inside the plot or adjust to fit nicely
+    # Add legend and optimize layout
     plt.legend(loc="upper right", frameon=True, shadow=True, facecolor="white")
     plt.tight_layout()
 
-    # 7. Save the plot to the output directory
+    # Save the plot to the output directory
     output_path = os.path.join(output_dir, "energy_demand_plot.png")
     plt.savefig(output_path, dpi=300)  # High resolution (300 DPI)
     plt.close()  # Close the figure to free up memory

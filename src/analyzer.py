@@ -1,8 +1,7 @@
 import pandas as pd
 
 def calculate_energy_statistics(df: pd.DataFrame) -> dict:
-    """
-    Calculates key statistical metrics (max, min, mean) broken down
+    """Calculates key statistical metrics (max, min, mean) broken down
     by each unique electricity demand type in the 'name' column.
 
     Args:
@@ -37,8 +36,7 @@ def calculate_energy_statistics(df: pd.DataFrame) -> dict:
     return stats_per_type
 
 def compare_demand_models(df: pd.DataFrame, targets: tuple = None) -> dict:
-    """
-    Performs advanced comparative analysis dynamically between the first two 
+    """Performs advanced comparative analysis dynamically between the first two 
     selected electricity demand types available in the filtered dataset.
 
     Args:
@@ -46,45 +44,44 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple = None) -> dict:
         targets (tuple, optional): A tuple containing (model_a, model_b) names to compare.
 
     Returns:
-        dict: A dictionary containing comparative metrics, or empty if targets are missing.
+        dict: A dictionary containing comparative metrics, or empty if targets are missing or invalid.
     """
-
-    # 1. If no explicit targets are passed, or we don't have enough data, we skip safely
+    # Safe guard: Skip if no explicit targets are passed or the format is invalid
     if not targets or len(targets) != 2:
         return {}
 
-    # 2. Extract the exact text names passed from the interface/main
+    # Extract target model names
     model_a, model_b = targets
 
-    # 3. Double check that BOTH models actually exist in the dataframe to avoid pandas KeyErrors
+    # Validate that both models exist in the DataFrame to prevent KeyErrors
     if model_a not in df["name"].values or model_b not in df["name"].values:
         print(f"⚠️ Advanced comparison skipped: One or both targets ('{model_a}', '{model_b}') are not in the current filtered data.")
         return {}
 
     print(f"\n🧠 Running advanced comparative analysis between '{model_a}' and '{model_b}'...")
 
-    # 5. Pivot and align data by datetime
+    # Pivot and align data by datetime
     pivoted_df = df.pivot(index="datetime", columns="name", values="value").dropna()
 
     series_a = pivoted_df[model_a]
     series_b = pivoted_df[model_b]
 
-    # 6. Calculate differences (Model A - Model B)
+    # Calculate differences (Model A - Model B)
     pivoted_df["difference"] = series_a - series_b
     pivoted_df["abs_difference"] = pivoted_df["difference"].abs()
 
-    # 7. Find the exact timestamp of the maximum absolute deviation
+    # Find the exact timestamp of the maximum absolute deviation
     max_diff_idx = pivoted_df["abs_difference"].idxmax()
     max_diff_time = max_diff_idx.strftime("%Y-%m-%d %H:%M")
     max_diff_value = int(pivoted_df.loc[max_diff_idx, "difference"])
 
-    # 8. Calculate Mean Absolute Percentage Error (MAPE) assuming Model A is the baseline/real
+    # Calculate Mean Absolute Percentage Error (MAPE) assuming Model A is the baseline
     mape = float((pivoted_df["abs_difference"] / series_a).mean() * 100)
 
-    # 9. Calculate Pearson Correlation Coefficient
+    # Calculate Pearson Correlation Coefficient
     correlation = float(series_a.corr(series_b))
 
-    # 10. Package metrics along with the names of the compared models
+    # Package metrics along with the names of the compared models
     comparison_stats = {
         "model_a": model_a,
         "model_b": model_b,

@@ -2,10 +2,9 @@ import pandas as pd
 import os
 
 def load_csv_data(file_path: str) -> pd.DataFrame:
-    """
-    Loads an energy dataset from a CSV file into a Pandas DataFrame.
+    """Loads an energy dataset from a CSV file into a Pandas DataFrame.
 
-    Arguments:
+    Args:
         file_path (str): Path to the CSV file.
 
     Returns:
@@ -14,18 +13,22 @@ def load_csv_data(file_path: str) -> pd.DataFrame:
     Raises:
         FileNotFoundError: If the file does not exist at the specified path.
         ValueError: If the file is empty or has parsing issues.
+        RuntimeError: If an unexpected error occurs while reading the file.
     """
     print(f"📂 Attempting to load data from: {file_path}")
 
-    # 1. Pre-validation: Check if file exists
+    # Pre-validation: Check if file exists
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"The file does not exist at the specified path: '{file_path}'")
     
     try:
-        # 2. Read CSV tailored to REE data structure (semi-colon separated)
-        # parse_dates automatically converts the datetime column to timestamp objects
+        # Read CSV tailored to REE data structure (semi-colon separated)
         df = pd.read_csv(file_path, sep=";", parse_dates=["datetime"])
-        
+
+        # Post-validation: Check if the DataFrame is empty
+        if df.empty:
+            raise ValueError(f"The file '{file_path}' is empty.")
+
         # 3. Post-validation: Check if dataframe is empty
         if df.empty:
             raise ValueError(f"The file '{file_path}' is empty.")

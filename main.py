@@ -1,52 +1,51 @@
-import pandas as pd
 import sys
-from src.loader import load_csv_data
-from src.validator import validate_dataset
+import pandas as pd
 from src.analyzer import calculate_energy_statistics, compare_demand_models
-from src.visualizer import plot_energy_demand
-from src.report import generate_text_report
 from src.interface import get_user_demand_selection, ask_comparison_targets
+from src.loader import load_csv_data
+from src.report import generate_text_report
+from src.validator import validate_dataset
+from src.visualizer import plot_energy_demand
 
 def main():
+    """Entry point for the data pipeline execution."""
     print("==================================================")
-    # Define the version constant within the entry point
     print("🚀 STARTING ENERGY PIPELINE EXECUTION (v1.0.0)")
     print("==================================================")
 
-    # 1. Define paths
+    # Configuration paths
     input_csv = "data/raw/energy_data.csv"
 
     try:
-        # 2. Extract: Load data
+        # Extract: Load raw data from CSV
         df = load_csv_data(input_csv)
 
-        # 3. Validate: Quality check firewall
+        # Validate: Structural and data quality checks
         validate_dataset(df)
 
-        # 4. Interactive Menu: Ask user for specific demand types to analyze
-        all_available_demands = list(pd.unique(df["name"]))
-        selected_types = get_user_demand_selection(df)
+        # Interactive Menu: Query user for specific demand types to filter
+        selected_types, all_available_demands = get_user_demand_selection(df)
         df_filtered = df[df["name"].isin(selected_types)]
 
-        # Determine comparison targets based on user choices
+        # Determine comparison targets based on user requirements
         comparison_targets = None
         if len(selected_types) == 2:
-            # If exactly 2, map them automatically
+            # Map automatically if exactly two options are selected
             comparison_targets = (selected_types[0], selected_types[1])
         elif len(selected_types) > 2:
-            # If more than 2, trigger the new sub-menu!
+            # Prompt submenu for explicit choice if more than two options exist
             comparison_targets = ask_comparison_targets(all_available_demands, selected_types)
 
-        # 5. Analyze: Calculate statistical metrics on filtered data
+        # Analyze: Calculate metrics over the filtered data subset
         stats = calculate_energy_statistics(df_filtered)
 
-        # 5b. Analyze: Advanced comparison between selected models
+        # Analyze: Run advanced evaluation between selected models
         comp_stats = compare_demand_models(df_filtered, comparison_targets)
 
-        # 6. Visualize: Generate and save plot on filtered data
+        # Visualize: Build and save the multi-line chart
         plot_path = plot_energy_demand(df_filtered)
 
-        # 7. Report: Generate automated text summary on filtered data
+        # Report: Write summary details to disk
         report_path = generate_text_report(df_filtered, stats, comp_stats)
 
         print("\n==================================================")
