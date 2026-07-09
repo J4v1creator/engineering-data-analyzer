@@ -3,7 +3,7 @@
 ## Overview
 **Engineering Data Analyzer** is a production-ready, modular Python pipeline designed to automate the ingestion, validation, analytical processing, and visualization of real-world energy datasets.
 
-Specifically tailored to interface with Red Eléctrica de España (REE) data structures, the system transforms raw time-series measurements into structured, high-resolution statistical reports and multi-line visualizations. The entire architecture enforces strict industry software practices, including static typing (type hinting), robust exception handling, and full segregation of business logic from the user interface.
+Specifically tailored to interface with Red Eléctrica de España (REE) data structures, the system transforms raw time-series measurements into structured, high-resolution statistical reports and multi-line visualizations. The entire architecture enforces strict industry software practices, including static typing (`type hinting`), robust exception handling, and full segregation of business logic from the user interface.
 
 ## 🛠️ Key Features
 * 🔄 **Automated Data Pipeline:** High-performance CSV parsing adapted to specialized grid data delimiters and automatic timezone-aware datetime normalization.
@@ -41,9 +41,9 @@ engineering-data-analyzer/
 * **Source:** Red Eléctrica de España (REE) - ESIOS Public Portal.
 * **Dataset Name:** Generación y Consumo (Spanish Peninsula Grid).
 * **Metrics:** Real-time, programmed, and scheduled electricity demand measured in Megawatts ($MW$).
-* **Data Format:** Semicolon-delimited CSV ($;$) with native ISO 8601 timestamps.
+* **Data Format:** Semicolon-delimited CSV (`$;$`) with native ISO 8601 timestamps.
 * **Time Resolution:** Continuous 5-minute intervals.
-* **Temporal Scope:** From 2026-07-03 21:00 CEST to 2026-07-04 19:55 CEST.
+* **Temporal Scope:** From `2026-07-03 21:00 CEST` to `2026-07-04 19:55 CEST`.
 * **Licensing:** Public Domain / Open Data (Subject to ESIOS/REE terms of use).
 
 ## 🚀 Quick Start & Execution
