@@ -1,6 +1,6 @@
 import sys
 import pandas as pd
-from src.analyzer import calculate_energy_statistics, compare_demand_models
+from src.analyzer import calculate_energy_statistics, compare_demand_models, detect_demand_anomalies
 from src.interface import get_user_demand_selection, ask_comparison_targets
 from src.loader import load_csv_data
 from src.report import generate_text_report
@@ -10,7 +10,7 @@ from src.visualizer import plot_energy_demand
 def main():
     """Entry point for the data pipeline execution."""
     print("==================================================")
-    print("🚀 STARTING ENERGY PIPELINE EXECUTION (v1.0.0)")
+    print("🚀 STARTING ENERGY DEMAND ANALYSIS PIPELINE")
     print("==================================================")
 
     # Configuration paths
@@ -41,6 +41,17 @@ def main():
 
         # Analyze: Run advanced evaluation between selected models
         comp_stats = compare_demand_models(df_filtered, comparison_targets)
+
+        # Analyze: Detect Anomalies
+        anomalies = detect_demand_anomalies(df_filtered)
+
+        # Quick console summary for anomalies
+        print("\n⚠️  ANOMALY DETECTION SUMMARY:")
+        if anomalies:
+            for demand_name, issues in anomalies.items():
+                print(f"  • {demand_name}: Found {len(issues)} statistical anomalies.")
+        else:
+            print("  • ✅ No anomalies detected in the selected demand types.")
 
         # Visualize: Build and save the multi-line chart
         plot_path = plot_energy_demand(df_filtered)

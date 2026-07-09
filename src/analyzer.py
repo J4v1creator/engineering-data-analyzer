@@ -94,3 +94,54 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple = None) -> dict:
 
     print("✅ Advanced comparative analysis completed successfully.")
     return comparison_stats
+
+def detect_demand_anomalies(df: pd.DataFrame, threshold: float = 2.0) -> dict:
+    """Detects abnormal spikes or drops in electricity demand using the Z-Score method.
+    An anomaly is defined as any value that deviates from the mean by more than
+    'threshold' times the standard deviation.
+
+    Args:
+        df (pd.DataFrame): The filtered energy DataFrame.
+        threshold (float): The Z-score cutoff (default is 2.0).
+
+    Returns:
+        dict: A dictionary categorized by demand type containing lists of detected anomalies.
+    """
+    print("\n🔍 Scanning for statistical anomalies in energy demand...")
+    anomalies_report = {}
+
+    # Analyze anomalies individually for each demand type present in the data
+    for demand_name in df["name"].unique():
+        demand_data = df[df["name"] == demand_name]
+
+        if len(demand_data) < 3:
+            continue # Not enough data points to compute variance reliably
+
+        mean_val = demand_data["value"].mean()
+        std_dev = demand_data["value"].std()
+
+        # Handle edge case where std_dev is 0 to avoid division by zero
+        if std_dev == 0:
+            continue
+
+        # Calculate Z-score for every row in this demand type
+        # Z = (x - mean) / std_dev
+        z_scores = (demand_data["value"] - mean_val) / std_dev
+
+        # Filter rows where the absolute Z-score breaks the threshold
+        anomaly_rows = demand_data[z_scores.abs() > threshold]
+
+        if not anomaly_rows.empty:
+            anomalies_report[demand_name] = []
+            for _, row in anomaly_rows.iterrows():
+                # Determine if it's a Spike (positive deviation) or a Drop (negative deviation)
+                anomaly_type = "SPIKE 📈" if row["value"] > mean_val else "DROP 📉"
+
+                anomalies_report[demand_name].append({
+                    "datetime": row["datetime"],
+                    "value": row["value"],
+                    "type": anomaly_type,
+                    "deviation": (row["value"] - mean_val)
+                })
+
+    return anomalies_report
