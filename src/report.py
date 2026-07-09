@@ -3,7 +3,7 @@ from datetime import datetime
 import pandas as pd
 from src.constants import DEMAND_TRANSLATIONS
 
-def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict = None, output_dir: str = "data/processed") -> str:
+def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict = None, anomalies: dict = None, output_dir: str = "data/processed") -> str:
     """Generates a structured, professional text report summarizing the full
     statistical insights for each specific type of electricity demand.
 
@@ -11,6 +11,7 @@ def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict = None,
         df (pd.DataFrame): The validated dataset.
         stats (dict): The dictionary of statistics calculated by the analyzer.
         comp_stats (dict, optional): The advanced comparison statistics. Defaults to None.
+        anomalies (dict, optional): The dictionary of detected anomalies. Defaults to None.
         output_dir (str): Directory where the report will be saved.
 
     Returns:
@@ -87,6 +88,22 @@ Compared Target     (Model B): {model_b_en}
 - Mean Absolute Pct. Error:     {comp_stats['mape']:.2f}%
 - Pearson Correlation (r):      {comp_stats['correlation']:.4f}
 """
+
+    # Statistical Anomaly Detection Section (New Section!)
+    report_content += f"""
+--------------------------------------------------
+4. STATISTICAL ANOMALY DETECTION (Z-SCORE > 2.0)
+--------------------------------------------------"""
+
+    if anomalies:
+        for demand_name, issues in anomalies.items():
+            english_name = DEMAND_TRANSLATIONS.get(demand_name, demand_name)
+            report_content += f"\n• {english_name.upper()}:"
+            for issue in issues:
+                report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {issue['value']} MW (Deviation: {issue['deviation']:.2f} MW)"
+            report_content += "\n"
+    else:
+        report_content += "\n- No statistical anomalies detected. All data points are within expected variance limits.\n"
 
     # Report Footer
     report_content += """
