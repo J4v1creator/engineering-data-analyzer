@@ -1,7 +1,7 @@
 import sys
 import pandas as pd
 from src.analyzer import calculate_energy_statistics, compare_demand_models, detect_demand_anomalies
-from src.interface import get_user_demand_selection, ask_comparison_targets
+from src.interface import get_user_demand_selection, ask_comparison_targets, display_anomalies_summary
 from src.loader import load_csv_data
 from src.report import generate_text_report
 from src.validator import validate_dataset
@@ -45,13 +45,8 @@ def main():
         # Analyze: Detect Anomalies
         anomalies = detect_demand_anomalies(df_filtered)
 
-        # Quick console summary for anomalies
-        print("\n⚠️  ANOMALY DETECTION SUMMARY:")
-        if anomalies:
-            for demand_name, issues in anomalies.items():
-                print(f"  • {demand_name}: Found {len(issues)} statistical anomalies.")
-        else:
-            print("  • ✅ No anomalies detected in the selected demand types.")
+        # Print summary using the interface layer
+        display_anomalies_summary(anomalies)
 
         # Visualize: Build and save the multi-line chart
         plot_path = plot_energy_demand(df_filtered)

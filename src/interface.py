@@ -92,3 +92,14 @@ def ask_comparison_targets(all_demands: list, selected_demands: list) -> tuple:
                 print(f"❌ Invalid choice. Please enter exactly two numbers from your active options: [{valid_options}].")
         except ValueError:
             print("❌ Input format error. Please use numbers separated by commas only (e.g., 1,2).")
+
+def display_anomalies_summary(anomalies: dict):
+    """
+    Prints a clean, formatted summary of the detected anomalies in the console.
+    """
+    print("\n⚠️  ANOMALY DETECTION SUMMARY:")
+    if anomalies:
+        for demand_name, issues in anomalies.items():
+            print(f"  • {demand_name}: Found {len(issues)} statistical anomalies.")
+    else:
+        print("  • ✅ No anomalies detected in the selected demand types.")
