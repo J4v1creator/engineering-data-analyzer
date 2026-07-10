@@ -145,3 +145,34 @@ def detect_demand_anomalies(df: pd.DataFrame, threshold: float = 2.0) -> dict:
                 })
 
     return anomalies_report
+
+def filter_dataframe_by_hour(df: pd.DataFrame, start_hour: int, end_hour: int) -> pd.DataFrame:
+    """Filters the DataFrame to keep only the rows within the specified hour range.
+
+    Args:
+        df (pd.DataFrame): The validated dataset containing a 'datetime'
+        column.
+        start_hour (int): Lower bound of the hour range (inclusive, 0-23).
+        end_hour (int): Upper bound of the hour range (exclusive, 0-23).
+
+    Returns:
+        pd.DataFrame: A new safely isolated DataFrame containing only the
+        filtered hours.
+    """
+    print(f"\n⏳ Filtering timeline data from {start_hour:02d}:00 to {end_hour:02d}:00...")
+
+    # Ensure datetime column is actually in datetime format
+    df_copy = df.copy()
+    df_copy["datetime"] = pd.to_datetime(df_copy["datetime"])
+
+    # Filter using pandas dt.hour accessor
+    # end_hour is exclusive to handle standard ranges nicely (e.g. 0 to 8 means 00:00 to 07:59)
+    hour_mask = (df_copy["datetime"].dt.hour >= start_hour) & (df_copy["datetime"].dt.hour < end_hour)
+
+    filtered_df = df_copy[hour_mask]
+
+    # Data availability sanity check before returning
+    if filtered_df.empty:
+        print("⚠️ Warning: The selected time filter returned an empty dataset!")
+
+    return filtered_df
