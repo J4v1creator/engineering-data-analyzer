@@ -105,3 +105,40 @@ def display_anomalies_summary(anomalies: dict):
             print(f"⚠️ {demand_name}: Found {len(issues)} statistical anomalies.")
     else:
         print("✅ No anomalies detected in the selected demand types.")
+
+def get_user_time_filter() -> tuple:
+    """Asks the user to select a specific time frame of the day to analyze.
+
+    Returns:
+        tuple: (start_hour, end_hour) as integers.
+    """
+    print("\n⏱️  TIME INTERVAL FILTER")
+    print("Which time frame would you like to analyze?")
+    print("1. Full Day (00:00 - 23:59)")
+    print("2. Night / Off-Peak hours (00:00 - 08:00)")
+    print("3. Office / Working hours (08:00 - 16:00)")
+    print("4. Peak / Evening hours (17:00 - 24:00)")
+    print("5. Custom hour range")
+
+    while True:
+        choice = input("Select an option (1-5): ").strip()
+        
+        if choice == "1":
+            return 0, 24
+        elif choice == "2":
+            return 0, 8
+        elif choice == "3":
+            return 8, 16
+        elif choice == "4":
+            return 16, 24
+        elif choice == "5":
+            try:
+                start = int(input("Enter start hour (0-23): ").strip())
+                end = int(input("Enter end hour (1-24): ").strip())
+                if 0 <= start < end <= 24:
+                    return start, end
+                print("❌ Invalid range. Start hour must be less than end hour, and both within 0-24.")
+            except ValueError:
+                print("❌ Please enter valid integers for the hours.")
+        else:
+            print("❌ Invalid selection. Please choose between 1 and 5.")
