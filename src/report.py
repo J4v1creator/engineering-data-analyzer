@@ -89,7 +89,7 @@ Compared Target     (Model B): {model_b_en}
 - Pearson Correlation (r):      {comp_stats['correlation']:.4f}
 """
 
-    # Statistical Anomaly Detection Section (New Section!)
+    # Statistical Anomaly Detection Section
     report_content += f"""
 --------------------------------------------------
 4. STATISTICAL ANOMALY DETECTION (Z-SCORE > 2.0)

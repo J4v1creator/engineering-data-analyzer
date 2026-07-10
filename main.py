@@ -52,7 +52,7 @@ def main():
         plot_path = plot_energy_demand(df_filtered)
 
         # Report: Write summary details to disk
-        report_path = generate_text_report(df_filtered, stats, comp_stats)
+        report_path = generate_text_report(df_filtered, stats, comp_stats, anomalies)
 
         print("\n==================================================")
         print("🎉 [SUCCESS] Pipeline executed perfectly!")
