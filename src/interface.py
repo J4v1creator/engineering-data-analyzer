@@ -94,12 +94,14 @@ def ask_comparison_targets(all_demands: list, selected_demands: list) -> tuple:
             print("❌ Input format error. Please use numbers separated by commas only (e.g., 1,2).")
 
 def display_anomalies_summary(anomalies: dict):
+    """Prints a clean, formatted summary of the detected anomalies in the console.
+
+    Args:
+        anomalies (dict): A dictionary where keys are demand names (str)
+        and values are lists of detected issues.
     """
-    Prints a clean, formatted summary of the detected anomalies in the console.
-    """
-    print("\n⚠️  ANOMALY DETECTION SUMMARY:")
     if anomalies:
         for demand_name, issues in anomalies.items():
-            print(f"  • {demand_name}: Found {len(issues)} statistical anomalies.")
+            print(f"⚠️ {demand_name}: Found {len(issues)} statistical anomalies.")
     else:
-        print("  • ✅ No anomalies detected in the selected demand types.")
+        print("✅ No anomalies detected in the selected demand types.")
