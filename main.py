@@ -1,7 +1,7 @@
 import sys
 import pandas as pd
-from src.analyzer import calculate_energy_statistics, compare_demand_models, detect_demand_anomalies
-from src.interface import get_user_demand_selection, ask_comparison_targets, display_anomalies_summary
+from src.analyzer import calculate_energy_statistics, compare_demand_models, detect_demand_anomalies, filter_dataframe_by_hour
+from src.interface import get_user_demand_selection, ask_comparison_targets, display_anomalies_summary, get_user_time_filter
 from src.loader import load_csv_data
 from src.report import generate_text_report
 from src.validator import validate_dataset
@@ -22,6 +22,10 @@ def main():
 
         # Validate: Structural and data quality checks
         validate_dataset(df)
+
+        # Time Filter Selection
+        start_h, end_h = get_user_time_filter()
+        df = filter_dataframe_by_hour(df, start_h, end_h)
 
         # Interactive Menu: Query user for specific demand types to filter
         selected_types, all_available_demands = get_user_demand_selection(df)
