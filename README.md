@@ -33,8 +33,10 @@ engineering-data-analyzer/
 │   ├── validator.py          # Structural verification and datatype firewall
 │   └── visualizer.py         # Matplotlib rendering and charting engine
 │
+├── .gitignore                # Specifies intentionally untracked files to ignore
 ├── main.py                   # Central execution entry point
-└── README.md                 # Project documentation
+├── README.md                 # Project documentation
+└── requirements.txt          # List of external Python dependencies
 ```
 
 ## 📊 Dataset Specifications
