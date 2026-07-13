@@ -29,10 +29,6 @@ def load_csv_data(file_path: str) -> pd.DataFrame:
         if df.empty:
             raise ValueError(f"The file '{file_path}' is empty.")
 
-        # 3. Post-validation: Check if dataframe is empty
-        if df.empty:
-            raise ValueError(f"The file '{file_path}' is empty.")
-        
         print(f"✅ Successfully loaded {len(df)} rows.")
         return df
     
