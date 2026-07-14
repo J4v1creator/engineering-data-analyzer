@@ -10,6 +10,7 @@ Specifically tailored to interface with Red Eléctrica de España (REE) data str
 * 🛡️ **Data Quality Firewall (`validator.py`):** Strict pre- and post-validation system checking for expected schemas, correct technical datatypes, null value elimination, and duplicate row prevention.
 * 🎛️ **Interactive Console Interface (`interface.py`):** Dynamic CLI menus allowing users to easily isolate specific demand categories or trigger comparative multi-selections via comma-separated index processing.
 * 🧠 **Advanced Analytics & Cross-Modeling (`analyzer.py`):** Statistical computations (mean, median, standard deviation, peak load times) paired with dynamic cross-model analysis measuring Mean Absolute Percentage Error (MAPE) and Pearson Correlation Coefficients ($r$).
+* ⚠️ **Statistical Anomaly Detection:** Automated screening for abnormal demand spikes or drops using a configurable Z-Score methodology ($> 2.0$ standard deviations).
 * 📉 **High-Resolution Visualizations (`visualizer.py`):** Automated generation of publication-quality charts using centralized design templates and strict chronological data alignments.
 * 📄 **Automated Reporting System (`report.py`):** Dynamic, localized file writer compiling full execution metadata, descriptive statistics, and delta error modeling into structural plain-text reports.
 
@@ -25,7 +26,7 @@ engineering-data-analyzer/
 │
 ├── src/                      # Package source root
 │   ├── __init__.py           # Package initialization marker
-│   ├── analyzer.py           # Core mathematics and advanced statistical modeling
+│   ├── analyzer.py           # Core mathematics, temporal filtering, and Z-Score anomaly modeling
 │   ├── constants.py          # Centralized configuration, labels, and color palettes
 │   ├── interface.py          # Interactive command-line menu mechanics
 │   ├── loader.py             # File system IO and raw extraction logic
@@ -59,6 +60,7 @@ To initiate the pipeline, simply execute the `python main.py` command in your te
 ### Pipeline Workflow
 1. **Extraction:** Loads raw data from `data/raw/energy_data.csv`.
 2. **Validation:** Verifies column schemas (`id`, `name`, `geoname`, `value`, `datetime`) and strict datatypes.
-3. **Filtering:** An interactive prompt asks you to select which specific electricity demands to include.
-4. **Cross-Analysis:** If multiple metrics are selected, a sub-menu prompts you to specify a baseline and a target model for detailed comparative evaluations.
-5. **Output Generation:** Saves the synchronized multi-line visualization (`energy_demand_plot.png`) and the complete analytical documentation (`energy_analysis_report.txt`) directly inside `data/processed/`.
+3. **Temporal Filtering:** An interactive prompt allows you to choose between analyzing the full dataset or defining a custom date and hour range (validated via Madrid timezone bounds).
+4. **Demand Selection:** An interactive menu asks you to select which specific electricity demands to include.
+5. **Cross-Analysis & Anomalies:** If multiple metrics are selected, a sub-menu prompts you to specify a baseline and a target model for detailed comparative evaluations. Simultaneously, the core engine runs a Z-score calculation to detect statistical spikes and drops.
+6. **Output Generation:** Prints an anomalies summary on the console, and automatically saves the synchronized multi-line visualization (`energy_demand_plot.png`) alongside the complete analytical documentation (`energy_analysis_report.txt`) directly inside `data/processed/`.
