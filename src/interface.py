@@ -1,3 +1,4 @@
+from datetime import datetime
 import pandas as pd
 
 def get_user_demand_selection(df) -> tuple:
@@ -106,39 +107,49 @@ def display_anomalies_summary(anomalies: dict):
     else:
         print("✅ No anomalies detected in the selected demand types.")
 
-def get_user_time_filter() -> tuple:
-    """Asks the user to select a specific time frame of the day to analyze.
+def get_user_datetime_filter() -> tuple:
+    """Asks the user to analyze all data or a specific datetime range.
 
     Returns:
-        tuple: (start_hour, end_hour) as integers.
+        tuple: (start_datetime, end_datetime) as datetime objects, or (None, None).
     """
-    print("\n⏱️  TIME INTERVAL FILTER")
-    print("Which time frame would you like to analyze?")
-    print("1. Full Day (00:00 - 23:59)")
-    print("2. Night / Off-Peak hours (00:00 - 08:00)")
-    print("3. Office / Working hours (08:00 - 16:00)")
-    print("4. Peak / Evening hours (17:00 - 24:00)")
-    print("5. Custom hour range")
+    print("\n📅 DATA PERIOD FILTER")
+    print("1. Analyze all data (Full available range)")
+    print("2. Custom exact date and time range")
 
     while True:
-        choice = input("Select an option (1-5): ").strip()
-        
+        choice = input("Select an option (1-2): ").strip()
+
         if choice == "1":
-            return 0, 24
+            return None, None
+
         elif choice == "2":
-            return 0, 8
-        elif choice == "3":
-            return 8, 16
-        elif choice == "4":
-            return 16, 24
-        elif choice == "5":
-            try:
-                start = int(input("Enter start hour (0-23): ").strip())
-                end = int(input("Enter end hour (1-24): ").strip())
-                if 0 <= start < end <= 24:
-                    return start, end
-                print("❌ Invalid range. Start hour must be less than end hour, and both within 0-24.")
-            except ValueError:
-                print("❌ Please enter valid integers for the hours.")
+            print("\n--- Enter Start Period ---")
+            print("Date format: YYYY-MM-DD (e.g., 2026-07-03)")
+            print("Time format: HH:MM      (e.g., 22:00)")
+
+            while True:
+                try:
+                    # Request and parse start datetime
+                    start_date = input("Start Date: ").strip()
+                    start_time = input("Start Time: ").strip()
+                    # Combine both strings into a single datetime
+                    start_dt = datetime.strptime(f"{start_date} {start_time}", "%Y-%m-%d %H:%M")
+
+                    print("\n--- Enter End Period ---")
+                    # Request and parse end datetime
+                    end_date = input("End Date: ").strip()
+                    end_time = input("End Time: ").strip()
+                    end_dt = datetime.strptime(f"{end_date} {end_time}", "%Y-%m-%d %H:%M")
+
+                    # Ensure the range is chronologically valid
+                    if start_dt >= end_dt:
+                        print("❌ Error: Start period must be earlier than End period. Try again.\n")
+                        continue
+                    return start_dt, end_dt
+
+                except ValueError:
+                    print("❌ Invalid format. Please check your dates (YYYY-MM-DD) and times (HH:MM).\n")
+
         else:
-            print("❌ Invalid selection. Please choose between 1 and 5.")
+            print("❌ Invalid selection. Please choose 1 or 2.")

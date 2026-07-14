@@ -1,3 +1,4 @@
+from datetime import datetime
 import pandas as pd
 
 def calculate_energy_statistics(df: pd.DataFrame) -> dict:
@@ -146,32 +147,39 @@ def detect_demand_anomalies(df: pd.DataFrame, threshold: float = 2.0) -> dict:
 
     return anomalies_report
 
-def filter_dataframe_by_hour(df: pd.DataFrame, start_hour: int, end_hour: int) -> pd.DataFrame:
-    """Filters the DataFrame to keep only the rows within the specified hour range.
+def filter_dataframe_by_time(df: pd.DataFrame, start_dt: datetime, end_dt: datetime) -> pd.DataFrame:
+    """Filters the DataFrame to keep only the rows within the specified exact datetime range.
 
     Args:
-        df (pd.DataFrame): The validated dataset containing a 'datetime'
-        column.
-        start_hour (int): Lower bound of the hour range (inclusive, 0-23).
-        end_hour (int): Upper bound of the hour range (exclusive, 0-23).
+        df (pd.DataFrame): The validated dataset containing a 'datetime' column.
+        start_dt (datetime): Lower bound of the datetime range (inclusive).
+        end_dt (datetime): Upper bound of the datetime range (inclusive).
 
     Returns:
-        pd.DataFrame: A new safely isolated DataFrame containing only the
-        filtered hours.
+        pd.DataFrame: A new safely isolated DataFrame containing only the filtered period.
     """
-    print(f"\n⏳ Filtering timeline data from {start_hour:02d}:00 to {end_hour:02d}:00...")
+    # Bypass filtering if no range limits are specified
+    if start_dt is None or end_dt is None:
+        print("\n📊 Analyzing all available timeline data...")
+        return df.copy()
 
-    # Ensure datetime column is actually in datetime format
+    print(f"\n⏳ Filtering timeline data from {start_dt.strftime('%Y-%m-%d %H:%M')} to {end_dt.strftime('%Y-%m-%d %H:%M')}...")
+
+    # Deep copy to avoid SettingWithCopyWarning
     df_copy = df.copy()
-    df_copy["datetime"] = pd.to_datetime(df_copy["datetime"])
 
-    # Filter using pandas dt.hour accessor
-    # end_hour is exclusive to handle standard ranges nicely (e.g. 0 to 8 means 00:00 to 07:59)
-    hour_mask = (df_copy["datetime"].dt.hour >= start_hour) & (df_copy["datetime"].dt.hour < end_hour)
+    # Normalize DataFrame datetime column to Madrid timezone
+    df_copy["datetime"] = pd.to_datetime(df_copy["datetime"], utc=True)
+    df_copy["datetime"] = df_copy["datetime"].dt.tz_convert('Europe/Madrid')
 
-    filtered_df = df_copy[hour_mask]
+    # Localize filter boundaries to match Madrid timezone
+    start_dt_tz = pd.to_datetime(start_dt).tz_localize('Europe/Madrid')
+    end_dt_tz = pd.to_datetime(end_dt).tz_localize('Europe/Madrid')
 
-    # Data availability sanity check before returning
+    # Apply boolean mask filtering
+    datetime_mask = (df_copy["datetime"] >= start_dt_tz) & (df_copy["datetime"] <= end_dt_tz)
+    filtered_df = df_copy[datetime_mask]
+
     if filtered_df.empty:
         print("⚠️ Warning: The selected time filter returned an empty dataset!")
 

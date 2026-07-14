@@ -3,7 +3,7 @@ from datetime import datetime
 import pandas as pd
 from src.constants import DEMAND_TRANSLATIONS
 
-def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict = None, anomalies: dict = None, output_dir: str = "data/processed") -> str:
+def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict = None, anomalies: dict = None, start_dt: datetime = None,  end_dt: datetime = None, output_dir: str = "data/processed") -> str:
     """Generates a structured, professional text report summarizing the full
     statistical insights for each specific type of electricity demand.
 
@@ -12,6 +12,8 @@ def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict = None,
         stats (dict): The dictionary of statistics calculated by the analyzer.
         comp_stats (dict, optional): The advanced comparison statistics. Defaults to None.
         anomalies (dict, optional): The dictionary of detected anomalies. Defaults to None.
+        start_dt (datetime, optional): The start datetime of the analyzed range.
+        end_dt (datetime, optional): The end datetime of the analyzed range.
         output_dir (str): Directory where the report will be saved.
 
     Returns:
@@ -29,6 +31,12 @@ def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict = None,
     # Get the current timestamp for the analysis metadata
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    # Format the analysis period label for reporting and visualization purposes
+    if start_dt and end_dt:
+        analysis_period = f"{start_dt.strftime('%Y-%m-%d %H:%M')} to {end_dt.strftime('%Y-%m-%d %H:%M')}"
+    else:
+        analysis_period = "Full Dataset Range (Unfiltered)"
+
     # Gather dimensions
     num_rows, num_cols = df.shape
     column_names = ', '.join(df.columns)
@@ -38,6 +46,7 @@ def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict = None,
 ENERGY CONSUMPTION ANALYSIS REPORT (AUTOMATED)
 ==================================================
 Date of Analysis:  {current_time}
+Analysis Period (Data): {analysis_period}
 Data Source:       Red Eléctrica de España (REE)
 
 --------------------------------------------------
@@ -46,6 +55,7 @@ Data Source:       Red Eléctrica de España (REE)
 - Total Rows:       {num_rows}
 - Total Columns:    {num_cols}
 - Column Names:     {column_names}
+- Selected Range:   [{analysis_period}]
 
 --------------------------------------------------
 2. STATISTICAL SUMMARY (DEMAND IN MW)
