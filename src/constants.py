@@ -4,6 +4,9 @@
 DEFAULT_INPUT_PATH = "data/raw/energy_data.csv"
 DEFAULT_OUTPUT_DIR = "data/processed"
 
+# Analysis configuration
+DEFAULT_ANOMALY_THRESHOLD = 2.0
+
 # Translation mapping for Red Eléctrica de España (REE) demand names
 DEMAND_TRANSLATIONS = {
     "Demanda real": "Real-Time Demand",

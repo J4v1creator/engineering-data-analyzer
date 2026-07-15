@@ -1,5 +1,6 @@
 from datetime import datetime
 import pandas as pd
+from src.constants import DEFAULT_ANOMALY_THRESHOLD
 
 def calculate_energy_statistics(df: pd.DataFrame) -> dict:
     """Calculates key statistical metrics (max, min, mean) broken down
@@ -96,14 +97,14 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple = None) -> dict:
     print("✅ Advanced comparative analysis completed successfully.")
     return comparison_stats
 
-def detect_demand_anomalies(df: pd.DataFrame, threshold: float = 2.0) -> dict:
+def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY_THRESHOLD) -> dict:
     """Detects abnormal spikes or drops in electricity demand using the Z-Score method.
     An anomaly is defined as any value that deviates from the mean by more than
     'threshold' times the standard deviation.
 
     Args:
         df (pd.DataFrame): The filtered energy DataFrame.
-        threshold (float): The Z-score cutoff (default is 2.0).
+        threshold (float): The Z-score cutoff used to detect anomalies.
 
     Returns:
         dict: A dictionary categorized by demand type containing lists of detected anomalies.
