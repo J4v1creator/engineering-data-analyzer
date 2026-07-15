@@ -1,6 +1,7 @@
 import sys
 import pandas as pd
 from src.analyzer import calculate_energy_statistics, compare_demand_models, detect_demand_anomalies, filter_dataframe_by_time
+from src.constants import DEFAULT_INPUT_PATH, DEFAULT_OUTPUT_DIR
 from src.interface import get_user_demand_selection, ask_comparison_targets, display_anomalies_summary, get_user_datetime_filter
 from src.loader import load_csv_data
 from src.report import generate_text_report
@@ -13,12 +14,9 @@ def main():
     print("🚀 STARTING ENERGY DEMAND ANALYSIS PIPELINE")
     print("==================================================")
 
-    # Configuration paths
-    input_csv = "data/raw/energy_data.csv"
-
     try:
         # Extract: Load raw data from CSV
-        df = load_csv_data(input_csv)
+        df = load_csv_data(DEFAULT_INPUT_PATH)
 
         # Validate: Structural and data quality checks
         validate_dataset(df)

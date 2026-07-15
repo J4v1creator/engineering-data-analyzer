@@ -1,9 +1,9 @@
 import os
 from datetime import datetime
 import pandas as pd
-from src.constants import DEMAND_TRANSLATIONS
+from src.constants import DEFAULT_OUTPUT_DIR, DEMAND_TRANSLATIONS
 
-def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict = None, anomalies: dict = None, start_dt: datetime = None,  end_dt: datetime = None, output_dir: str = "data/processed") -> str:
+def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict = None, anomalies: dict = None, start_dt: datetime = None,  end_dt: datetime = None, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
     """Generates a structured, professional text report summarizing the full
     statistical insights for each specific type of electricity demand.
 
