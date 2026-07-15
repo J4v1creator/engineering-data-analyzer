@@ -62,8 +62,19 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple = None) -> dict:
 
     print(f"\n🧠 Running advanced comparative analysis between '{model_a}' and '{model_b}'...")
 
-    # Pivot and align data by datetime
-    pivoted_df = df.pivot(index="datetime", columns="name", values="value").dropna()
+    # Align both demand models and keep only timestamps where both have available data
+    pivoted_df = df.pivot(index="datetime", columns="name", values="value")
+
+    rows_before = len(pivoted_df)
+
+    # Remove timestamps with missing values in either demand model
+    pivoted_df = pivoted_df.dropna()
+
+    rows_after = len(pivoted_df)
+
+    # Inform the user if part of the dataset was excluded due to missing values
+    if rows_before != rows_after:
+        print(f"ℹ️ {rows_before - rows_after} timestamps were excluded because one of the compared demand series had no data.")
 
     series_a = pivoted_df[model_a]
     series_b = pivoted_df[model_b]
