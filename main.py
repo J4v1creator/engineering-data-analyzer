@@ -1,61 +1,56 @@
 import sys
 import pandas as pd
-from src.analyzer import calculate_energy_statistics, compare_demand_models, detect_demand_anomalies, filter_dataframe_by_time
-from src.constants import DEFAULT_RAW_DIR, DEFAULT_PROCESSED_DIR
+from src.analyzer import calculate_energy_statistics, compare_demand_models, detect_demand_anomalies
+from src.constants import ESIOS_INDICATORS
 from src.interface import get_user_demand_selection, ask_comparison_targets, display_anomalies_summary, get_user_datetime_filter
-from src.loader import load_csv_data
+from src.loader import fetch_and_combine_esios_data
 from src.report import generate_text_report
 from src.validator import validate_dataset
 from src.visualizer import plot_energy_demand
 
 def main():
-    """Entry point for the data pipeline execution."""
+    """Main orchestrator for the energy demand data analysis pipeline.
+
+    Handles user configuration, interactive CLI choices, data fetching (API/Cache),
+    quality validation, metric generation, anomaly detection, and artifact exports.
+    """
     print("==================================================")
     print("🚀 STARTING ENERGY DEMAND ANALYSIS PIPELINE")
     print("==================================================")
 
     try:
-        # Extract: Load raw data from CSV
-        df = load_csv_data(DEFAULT_RAW_DIR)
-
-        # Validate: Structural and data quality checks
-        validate_dataset(df)
-
-        # Interactive Menu: Prompt the user to select or define a specific analysis period
+        # Input: Prompt user for time filters and period constraints
         start_dt, end_dt = get_user_datetime_filter()
 
-        # Analyze: Apply the temporal filter to isolate the relevant data subset
-        df_time_filtered = filter_dataframe_by_time(df, start_dt, end_dt)
+        # Input: Retrieve full metadata parameters and fetch user choice configurations
+        available_demands = list(ESIOS_INDICATORS.keys())
+        selected_types, all_available_demands = get_user_demand_selection(available_demands)
 
-        # Interactive Menu: Query user for specific demand types to filter
-        selected_types, all_available_demands = get_user_demand_selection(df_time_filtered)
-        df_filtered = df_time_filtered[df_time_filtered["name"].isin(selected_types)]
+        # Process: Retrieve, extract, and unify datasets from the cache layer or remote API
+        df_filtered = fetch_and_combine_esios_data(selected_types, start_dt, end_dt)
 
-        # Determine comparison targets based on user requirements
+        # Validate: Enforce structural constraints and structural quality checks
+        validate_dataset(df_filtered)
+
+        # Process: Establish target baselines and pairwise comparison groups based on selection limits
         comparison_targets = None
         if len(selected_types) == 2:
-            # Map automatically if exactly two options are selected
             comparison_targets = (selected_types[0], selected_types[1])
         elif len(selected_types) > 2:
-            # Interactive Menu: Prompt submenu for explicit choice if more than two options exist
             comparison_targets = ask_comparison_targets(all_available_demands, selected_types)
 
-        # Analyze: Calculate metrics over the filtered data subset
+        # Analyze: Execute mathematical metrics, model evaluations, and standard deviation anomalies
         stats = calculate_energy_statistics(df_filtered)
-
-        # Analyze: Run advanced evaluation between selected models
         comp_stats = compare_demand_models(df_filtered, comparison_targets)
-
-        # Analyze: Detect Anomalies
         anomalies = detect_demand_anomalies(df_filtered)
 
-        # Interactive Menu: Print summary using the interface layer
+        # Output: Render descriptive warning logs and runtime evaluation summaries to the CLI
         display_anomalies_summary(anomalies)
 
-        # Visualize: Build and save the multi-line chart
+        # Output: Build graphical plots and serialize analytical charts to disk storage
         plot_path = plot_energy_demand(df_filtered)
 
-        # Report: Write summary details to disk
+        # Output: Generate text files detailing consolidated metrics and performance history
         report_path = generate_text_report(df_filtered, stats, comp_stats, anomalies, start_dt, end_dt)
 
         print("\n==================================================")
@@ -64,8 +59,11 @@ def main():
         print(f"📄 Report saved to: {report_path}")
         print("==================================================")
 
+    except RuntimeError as e:
+        print(f"\n❌ API Connection Error: Could not retrieve data.\n{e}")
+        sys.exit(1)
     except FileNotFoundError as e:
-        print(f"\n❌ Critical Error: File not found.\n{e}")
+        print(f"\n❌ Critical Error: Local file or directory missing.\n{e}")
         sys.exit(1)
     except ValueError as e:
         print(f"\n❌ Data Quality Error: Validation failed.\n{e}")
