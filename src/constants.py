@@ -10,6 +10,14 @@ RAW_FILE_PREFIX = "esios_demand"
 # Analysis configuration
 DEFAULT_ANOMALY_THRESHOLD = 2.0
 
+# E·sios API Indicators Mapping
+ESIOS_INDICATORS = {
+    "Demanda real": 1293,
+    "Demanda prevista": 544,
+    "Demanda programada": 545,
+    "Demanda Programada Total Peninsular": 1941
+}
+
 # Translation mapping for Red Eléctrica de España (REE) demand names
 DEMAND_TRANSLATIONS = {
     "Demanda real": "Real-Time Demand",
