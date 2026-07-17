@@ -1,8 +1,11 @@
 """Global constants and configuration mappings for the energy pipeline."""
 
 # File system paths
-DEFAULT_INPUT_PATH = "data/raw/energy_data.csv"
-DEFAULT_OUTPUT_DIR = "data/processed"
+DEFAULT_RAW_DIR = "data/raw"
+DEFAULT_PROCESSED_DIR = "data/processed"
+
+# Prefix to identify API files
+RAW_FILE_PREFIX = "esios_demand"
 
 # Analysis configuration
 DEFAULT_ANOMALY_THRESHOLD = 2.0
