@@ -10,6 +10,9 @@ RAW_FILE_PREFIX = "esios_demand"
 # Analysis configuration
 DEFAULT_ANOMALY_THRESHOLD = 2.0
 
+# Cache expiration in days for API data
+CACHE_EXPIRATION_DAYS = 7
+
 # E·sios API Indicators Mapping
 ESIOS_INDICATORS = {
     "Demanda real": 1293,

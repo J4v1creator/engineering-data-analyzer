@@ -1,6 +1,7 @@
 import sys
 import pandas as pd
 from src.analyzer import calculate_energy_statistics, compare_demand_models, detect_demand_anomalies
+from src.cleaner import clean_expired_cache
 from src.constants import ESIOS_INDICATORS
 from src.interface import get_user_demand_selection, ask_comparison_targets, display_anomalies_summary, get_user_datetime_filter
 from src.loader import fetch_and_combine_esios_data
@@ -19,6 +20,9 @@ def main():
     print("==================================================")
 
     try:
+        # Maintenance: Clean up expired cache files before processing
+        clean_expired_cache()
+
         # Input: Prompt user for time filters and period constraints
         start_dt, end_dt = get_user_datetime_filter()
 
