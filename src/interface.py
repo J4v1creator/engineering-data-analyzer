@@ -1,18 +1,20 @@
 from datetime import datetime
 import pandas as pd
 
-def get_user_demand_selection(df) -> tuple:
+def get_user_demand_selection(df_or_list) -> tuple:
     """Displays the available electricity demand types found in the dataset
     and prompts the user to select which ones to analyze using numbers.
 
     Args:
-        df (pd.DataFrame): The validated dataset.
+        df_or_list (pd.DataFrame or list): The validated dataset or a list of demand types.
 
     Returns:
         tuple: A tuple containing (selected_demands, all_available_demands).
     """
-    # Extract unique demand categories dynamically from the 'name' column
-    available_demands = list(pd.unique(df["name"]))
+    if isinstance(df_or_list, list):
+        available_demands = df_or_list
+    else:
+        available_demands = list(pd.unique(df_or_list["name"]))
 
     print("\n📊 --- DEMAND SELECTION MENU ---")
     print("Select which demand types you want to include in the report and chart:")
