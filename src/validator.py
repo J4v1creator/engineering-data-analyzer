@@ -1,13 +1,5 @@
 import pandas as pd
-
-# Expected schema for strict type checking
-EXPECTED_COLUMNS = {
-    "id": "int64",
-    "name": "object",
-    "geoname": "object",
-    "value": "int64",
-    "datetime": "datetime64[ns, pytz.FixedOffset(120)]"  # Matches +02:00 timezone
-}
+from src.constants import EXPECTED_COLUMNS
 
 def validate_dataset(df: pd.DataFrame) -> bool:
     """Validates the dataset structure, data types, missing values, and duplicates.

@@ -13,6 +13,15 @@ DEFAULT_ANOMALY_THRESHOLD = 2.0
 # Cache expiration in days for API data
 CACHE_EXPIRATION_DAYS = 7
 
+# Expected schema for strict type checking
+EXPECTED_COLUMNS = {
+    "id": "int64",
+    "name": "object",
+    "geoname": "object",
+    "value": "int64",
+    "datetime": "datetime64[ns, pytz.FixedOffset(120)]"  # Matches +02:00 timezone
+}
+
 # E·sios API Indicators Mapping
 ESIOS_INDICATORS = {
     "Demanda real": 1293,
