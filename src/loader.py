@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 import pandas as pd
 import requests
-from src.constants import DEFAULT_RAW_DIR, RAW_FILE_PREFIX, ESIOS_INDICATORS
+from src.constants import DEFAULT_RAW_DIR, RAW_FILE_PREFIX, ESIOS_INDICATORS, DEMAND_TRANSLATIONS
 
 # Load environment variables from .env file
 load_dotenv()
@@ -19,10 +19,17 @@ def generate_indicator_filepath(demand_name: str, start_dt: datetime, end_dt: da
     Returns:
         str: The full optimized destination file path for local caching.
     """
-    # Create a safe file naming standard by normalizing whitespace and casing
-    safe_demand_name = demand_name.lower().replace(" ", "_")
-    start_str = start_dt.strftime("%Y%m%d")
-    end_str = end_dt.strftime("%Y%m%d")
+    # Translate the demand name to English using constants mapping (with fallback)
+    english_name = DEMAND_TRANSLATIONS.get(demand_name, demand_name)
+    safe_demand_name = english_name.lower().replace(" ", "_").replace("-", "_")
+
+    # Format timestamps: include hours if the range is within the same day
+    if start_dt.date() == end_dt.date():
+        start_str = start_dt.strftime("%Y%m%d_%H%M")
+        end_str = end_dt.strftime("%Y%m%d_%H%M")
+    else:
+        start_str = start_dt.strftime("%Y%m%d")
+        end_str = end_dt.strftime("%Y%m%d")
 
     filename = f"{RAW_FILE_PREFIX}_{safe_demand_name}_{start_str}_to_{end_str}.csv"
     return os.path.join(DEFAULT_RAW_DIR, filename)
