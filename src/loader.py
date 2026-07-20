@@ -1,9 +1,10 @@
 from datetime import datetime
 import os
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 import pandas as pd
 import requests
-from src.constants import DEFAULT_RAW_DIR, RAW_FILE_PREFIX, ESIOS_INDICATORS, DEMAND_TRANSLATIONS
+from src.constants import DEFAULT_RAW_DIR, DEMAND_TRANSLATIONS, ESIOS_INDICATORS, RAW_FILE_PREFIX
 
 # Load environment variables from .env file
 load_dotenv()
@@ -56,9 +57,16 @@ def fetch_and_combine_esios_data(selected_demands: list, start_dt: datetime, end
     if not api_token:
         raise ValueError("Critical Error: 'ESIOS_API_TOKEN' missing in .env file.")
 
-    # The e-sios gateway enforces strict UTC ISO 8601 formatting for parameters
-    start_iso = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-    end_iso = end_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        # Assign Spain local timezone (Europe/Madrid) to prevent UTC offset shifts
+    madrid_tz = ZoneInfo("Europe/Madrid")
+    if start_dt.tzinfo is None:
+        start_dt = start_dt.replace(tzinfo=madrid_tz)
+    if end_dt.tzinfo is None:
+        end_dt = end_dt.replace(tzinfo=madrid_tz)
+
+    # Convert datetimes to proper ISO 8601 strings carrying timezone offsets
+    start_iso = start_dt.isoformat()
+    end_iso = end_dt.isoformat()
 
     headers = {
         "Accept": "application/json; application/vnd.esios-api-v1+json",
