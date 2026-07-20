@@ -126,12 +126,12 @@ def get_user_datetime_filter() -> tuple:
             return None, None
 
         elif choice == "2":
-            print("\n--- Enter Start Period ---")
-            print("Date format: YYYY-MM-DD (e.g., 2026-07-03)")
+            print("\nDate format: YYYY-MM-DD (e.g., 2026-07-03)")
             print("Time format: HH:MM      (e.g., 22:00)")
 
             while True:
                 try:
+                    print("\n--- Enter Start Period ---")
                     # Request and parse start datetime
                     start_date = input("Start Date: ").strip()
                     start_time = input("Start Time: ").strip()
