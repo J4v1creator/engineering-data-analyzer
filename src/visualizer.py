@@ -3,16 +3,16 @@ from zoneinfo import ZoneInfo
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
-from src.constants import DEFAULT_PROCESSED_DIR, DEMAND_TRANSLATIONS, DEMAND_COLOR_PALETTE
+from src.constants import DEFAULT_PROCESSED_DIR, DEMAND_COLOR_PALETTE, DEMAND_TRANSLATIONS
 
 def plot_energy_demand(df: pd.DataFrame, output_dir: str = DEFAULT_PROCESSED_DIR) -> str:
     """Generates a multi-line plot of electricity demand over time.
     Separates different demand types by the 'name' column.
-    
+
     Args:
         df (pd.DataFrame): The validated dataset containing 'datetime', 'value', and 'name'.
         output_dir (str): Directory where the plot image will be saved.
-        
+
     Returns:
         str: The file path where the plot was saved.
     """
@@ -22,6 +22,21 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str = DEFAULT_PROCESSED_DIR
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         print(f"📁 Created output directory at: '{output_dir}'")
+
+    # Dynamic Filename Generation based on Dataset Temporal Range
+    min_dt = df["datetime"].min()
+    max_dt = df["datetime"].max()
+
+    # Format timestamps: include hours if range is within the same day
+    if min_dt.date() == max_dt.date():
+        start_str = min_dt.strftime("%Y%m%d_%H%M")
+        end_str = max_dt.strftime("%Y%m%d_%H%M")
+    else:
+        start_str = min_dt.strftime("%Y%m%d")
+        end_str = max_dt.strftime("%Y%m%d")
+
+    filename = f"plot_energy_demand_{start_str}_to_{end_str}.png"
+    output_path = os.path.join(output_dir, filename)
 
     # Setup the plot figure size and style
     plt.figure(figsize=(14, 7))
@@ -64,7 +79,6 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str = DEFAULT_PROCESSED_DIR
     plt.tight_layout()
 
     # Save the plot to the output directory
-    output_path = os.path.join(output_dir, "energy_demand_plot.png")
     plt.savefig(output_path, dpi=300)  # High resolution (300 DPI)
     plt.close()  # Close the figure to free up memory
 
