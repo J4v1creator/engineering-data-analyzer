@@ -1,4 +1,3 @@
-from datetime import datetime
 import pandas as pd
 from src.constants import DEFAULT_ANOMALY_THRESHOLD
 
