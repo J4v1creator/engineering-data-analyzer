@@ -1,6 +1,6 @@
 import os
 import time
-from src.constants import CACHE_EXPIRATION_DAYS, DEFAULT_PROCESSED_DIR, DEFAULT_RAW_DIR, RAW_FILE_PREFIX
+from src.constants import CACHE_EXPIRATION_DAYS, DEFAULT_OUTPUT_DIR, DEFAULT_RAW_DIR, RAW_FILE_PREFIX
 
 def _clean_directory(target_dir: str, expiration_days: int, file_prefix: str = None) -> int:
     """Helper function to scan a directory and delete files older than expiration_days.
@@ -49,7 +49,7 @@ def _clean_directory(target_dir: str, expiration_days: int, file_prefix: str = N
     return deleted_count
 
 
-def clean_expired_cache(raw_dir: str = DEFAULT_RAW_DIR, output_dir: str = DEFAULT_PROCESSED_DIR, expiration_days: int = CACHE_EXPIRATION_DAYS) -> None:
+def clean_expired_cache(raw_dir: str = DEFAULT_RAW_DIR, output_dir: str = DEFAULT_OUTPUT_DIR, expiration_days: int = CACHE_EXPIRATION_DAYS) -> None:
     """Scans both raw data cache and output directories to purge expired files.
 
     Args:
