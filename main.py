@@ -1,9 +1,11 @@
+import sqlite3
 import sys
 import pandas as pd
 from src.analyzer import calculate_energy_statistics, compare_demand_models, detect_demand_anomalies
 from src.cleaner import clean_expired_cache
 from src.constants import ESIOS_INDICATORS
-from src.interface import get_user_demand_selection, ask_comparison_targets, display_anomalies_summary, get_user_datetime_filter
+from src.database import init_db
+from src.interface import ask_comparison_targets, display_anomalies_summary, get_user_datetime_filter, get_user_demand_selection
 from src.loader import fetch_and_combine_esios_data
 from src.report import generate_text_report
 from src.validator import validate_dataset
@@ -20,6 +22,9 @@ def main():
     print("==================================================")
 
     try:
+        # Database setup: Ensure tables and indexes are initialized
+        init_db()
+
         # Maintenance: Clean up expired cache files before processing
         clean_expired_cache()
 
@@ -63,6 +68,9 @@ def main():
         print(f"📄 Report saved to: {report_path}")
         print("==================================================")
 
+    except sqlite3.Error as e:
+        print(f"\n❌ Database Error: An issue occurred with SQLite storage.\n{e}")
+        sys.exit(1)
     except RuntimeError as e:
         print(f"\n❌ API Connection Error: Could not retrieve data.\n{e}")
         sys.exit(1)
