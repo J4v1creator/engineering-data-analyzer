@@ -4,40 +4,15 @@ from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 import pandas as pd
 import requests
-from src.constants import DEFAULT_RAW_DIR, DEMAND_TRANSLATIONS, ESIOS_INDICATORS, RAW_FILE_PREFIX
+from src.constants import ESIOS_INDICATORS
+from src.database import load_demand_data, save_demand_dataframe
 
 # Load environment variables from .env file
 load_dotenv()
 
-def generate_indicator_filepath(demand_name: str, start_dt: datetime, end_dt: datetime) -> str:
-    """Generates a professional, unique filename for a specific indicator and date range.
-
-    Args:
-        demand_name (str): The name of the electricity demand type.
-        start_dt (datetime): Start bound of the temporal range.
-        end_dt (datetime): End bound of the temporal range.
-
-    Returns:
-        str: The full optimized destination file path for local caching.
-    """
-    # Translate the demand name to English using constants mapping (with fallback)
-    english_name = DEMAND_TRANSLATIONS.get(demand_name, demand_name)
-    safe_demand_name = english_name.lower().replace(" ", "_").replace("-", "_")
-
-    # Format timestamps: include hours if the range is within the same day
-    if start_dt.date() == end_dt.date():
-        start_str = start_dt.strftime("%Y%m%d_%H%M")
-        end_str = end_dt.strftime("%Y%m%d_%H%M")
-    else:
-        start_str = start_dt.strftime("%Y%m%d")
-        end_str = end_dt.strftime("%Y%m%d")
-
-    filename = f"{RAW_FILE_PREFIX}_{safe_demand_name}_{start_str}_to_{end_str}.csv"
-    return os.path.join(DEFAULT_RAW_DIR, filename)
-
 def fetch_and_combine_esios_data(selected_demands: list, start_dt: datetime, end_dt: datetime) -> pd.DataFrame:
-    """Fetches selected energy indicators from the e-sios API, handles local caching,
-    and unifies them into a structural schema matching EXPECTED_COLUMNS.
+    """Fetches selected energy indicators from the e-sios API or SQLite database cache,
+    and unifies them into a timezone-aware DataFrame ready for validation.
 
     Args:
         selected_demands (list): List of demand names chosen by the user.
@@ -45,19 +20,18 @@ def fetch_and_combine_esios_data(selected_demands: list, start_dt: datetime, end
         end_dt (datetime): End boundary of the analysis period.
 
     Returns:
-        pd.DataFrame: A unified, timezone-aware DataFrame ready for validation.
+        pd.DataFrame: A unified, timezone-aware DataFrame ready for processing.
 
     Raises:
         ValueError: If the 'ESIOS_API_TOKEN' is missing from the environment variables,
                     or if no data could be retrieved for any of the selected types.
-        RuntimeError: If the remote HTTP request to the e-sios gateway fails or 
-                    returns a bad status code.
+        RuntimeError: If the remote HTTP request to the e-sios gateway fails.
     """
     api_token = os.getenv("ESIOS_API_TOKEN")
     if not api_token:
         raise ValueError("Critical Error: 'ESIOS_API_TOKEN' missing in .env file.")
 
-        # Assign Spain local timezone (Europe/Madrid) to prevent UTC offset shifts
+    # Assign Spain local timezone (Europe/Madrid) to prevent UTC offset shifts
     madrid_tz = ZoneInfo("Europe/Madrid")
     if start_dt.tzinfo is None:
         start_dt = start_dt.replace(tzinfo=madrid_tz)
@@ -68,28 +42,31 @@ def fetch_and_combine_esios_data(selected_demands: list, start_dt: datetime, end
     start_iso = start_dt.isoformat()
     end_iso = end_dt.isoformat()
 
+    # Check if requested records already exist in SQLite
+    df_cached = load_demand_data(selected_demands, start_iso, end_iso)
+
+    # Check if all requested demand indicators are fully present in the returned cache
+    cached_demands = df_cached["name"].unique() if not df_cached.empty else []
+    missing_demands = [d for d in selected_demands if d not in cached_demands]
+
+    if not df_cached.empty and not missing_demands:
+        print("📦 Data successfully loaded from local SQLite database cache.")
+        return df_cached
+
+    # Retrieve missing demand series directly from e-sios
+    demands_to_fetch = missing_demands if not df_cached.empty else selected_demands
     headers = {
         "Accept": "application/json; application/vnd.esios-api-v1+json",
         "Content-Type": "application/json",
         "x-api-key": api_token
     }
     params = {"start_date": start_iso, "end_date": end_iso}
-    all_dataframes = []
+    fetched_dataframes = []
 
-    for demand_name in selected_demands:
+    for demand_name in demands_to_fetch:
         indicator_id = ESIOS_INDICATORS.get(demand_name)
         if not indicator_id:
             print(f"⚠️ Warning: No API indicator ID configured for '{demand_name}'. Skipping.")
-            continue
-
-        csv_path = generate_indicator_filepath(demand_name, start_dt, end_dt)
-
-        # Hit: Load dataset from local cache storage layer if available
-        if os.path.exists(csv_path):
-            print(f"📦 Local cache found for '{demand_name}' at '{csv_path}'.")
-            df_indicator = pd.read_csv(csv_path, sep=";")
-            df_indicator["datetime"] = pd.to_datetime(df_indicator["datetime"])
-            all_dataframes.append(df_indicator)
             continue
 
         # Miss: Request raw response from remote server gateway
@@ -130,18 +107,23 @@ def fetch_and_combine_esios_data(selected_demands: list, start_dt: datetime, end
             df_indicator["datetime"] = pd.to_datetime(df_indicator["datetime"], utc=True)
             df_indicator["datetime"] = df_indicator["datetime"].dt.tz_convert('Europe/Madrid')
 
-            # Persist response object to internal file storage to bypass API limits on future runs
-            os.makedirs(DEFAULT_RAW_DIR, exist_ok=True)
-            df_indicator.to_csv(csv_path, sep=";", index=False)
-
-            all_dataframes.append(df_indicator)
+            # Store freshly fetched records in SQLite
+            save_demand_dataframe(df_indicator)
+            fetched_dataframes.append(df_indicator)
 
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"Failed to fetch indicator {indicator_id} ({demand_name}): {e}")
 
+    # Combine cached and newly fetched DataFrames if necessary
+    all_dataframes = []
+    if not df_cached.empty:
+        all_dataframes.append(df_cached)
+
     if not all_dataframes:
         raise ValueError("No data could be retrieved for any of the selected demand types.")
 
-    # Consolidate all standalone series into a clean, unified structure
+    # Consolidate, deduplicate, and sort the final dataset
     combined_df = pd.concat(all_dataframes, ignore_index=True)
+    combined_df = combined_df.drop_duplicates(subset=["name", "datetime"]).sort_values("datetime").reset_index(drop=True)
+
     return combined_df
