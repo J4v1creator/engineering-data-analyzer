@@ -3,7 +3,6 @@ import os
 # Base storage paths
 DEFAULT_DB_DIR = "data/database"
 DEFAULT_DB_PATH = os.path.join(DEFAULT_DB_DIR, "energy_data.db")
-# DEFAULT_RAW_DIR = "data/raw"
 DEFAULT_OUTPUT_DIR = "data/output"
 
 # Prefix to identify API files
