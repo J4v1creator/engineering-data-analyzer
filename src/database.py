@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import sqlite3
 from typing import List
@@ -106,6 +107,12 @@ def load_demand_data(demands: List[str], start_iso: str, end_iso: str, db_path: 
         return pd.DataFrame()
 
     init_db(db_path)
+
+    # Ensure start and end datetimes are in ISO format strings
+    if isinstance(start_iso, datetime):
+        start_iso = start_iso.isoformat()
+    if isinstance(end_iso, datetime):
+        end_iso = end_iso.isoformat()
 
     # Prepare dynamic placeholders for the IN clause (?, ?, ?)
     placeholders = ", ".join(["?"] * len(demands))
