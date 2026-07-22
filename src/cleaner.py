@@ -1,14 +1,15 @@
 import os
+import sqlite3
 import time
-from src.constants import CACHE_EXPIRATION_DAYS, DEFAULT_OUTPUT_DIR, DEFAULT_RAW_DIR, RAW_FILE_PREFIX
+from src.constants import CACHE_EXPIRATION_DAYS, DEFAULT_DB_PATH, DEFAULT_OUTPUT_DIR
+from src.database import get_connection
 
-def _clean_directory(target_dir: str, expiration_days: int, file_prefix: str = None) -> int:
+def _clean_directory(target_dir: str, expiration_days: int) -> int:
     """Helper function to scan a directory and delete files older than expiration_days.
 
     Args:
         target_dir (str): Directory to clean.
         expiration_days (int): File age threshold in days.
-        file_prefix (str, optional): If provided, only files starting with this prefix are deleted.
 
     Returns:
         int: Number of deleted files.
@@ -29,10 +30,6 @@ def _clean_directory(target_dir: str, expiration_days: int, file_prefix: str = N
         if not os.path.isfile(filepath):
             continue
 
-        # Optional prefix filter check for security
-        if file_prefix and not filename.startswith(file_prefix):
-            continue
-
         try:
             file_mod_time = os.path.getmtime(filepath)
             file_age_seconds = now - file_mod_time
@@ -48,26 +45,58 @@ def _clean_directory(target_dir: str, expiration_days: int, file_prefix: str = N
 
     return deleted_count
 
-
-def clean_expired_cache(raw_dir: str = DEFAULT_RAW_DIR, output_dir: str = DEFAULT_OUTPUT_DIR, expiration_days: int = CACHE_EXPIRATION_DAYS) -> None:
-    """Scans both raw data cache and output directories to purge expired files.
+def _clean_expired_database_records(db_path: str, expiration_days: int) -> int:
+    """Deletes records from SQLite database older than expiration_days.
 
     Args:
-        raw_dir (str): Directory containing cached raw API CSV files.
+        db_path (str): Path to the SQLite database file.
+        expiration_days (int): Age threshold in days.
+
+    Returns:
+        int: Number of deleted database rows.
+    """
+    if not os.path.exists(db_path):
+        return 0
+
+    deleted_rows = 0
+    try:
+        with get_connection(db_path) as conn:
+            cursor = conn.cursor()
+            # SQLite modifier '-X days' subtracts X days from current timestamp
+            query = """
+                DELETE FROM demand_records
+                WHERE datetime < DATETIME('now', ? || ' days');
+            """
+            cursor.execute(query, (f"-{expiration_days}",))
+            conn.commit()
+            deleted_rows = cursor.rowcount
+
+        if deleted_rows > 0:
+            print(f"🗑️ [CLEANER] Purged {deleted_rows} expired records from SQLite database.")
+
+    except sqlite3.Error as e:
+        print(f"❌ [CLEANER] Error cleaning database records: {e}")
+
+    return deleted_rows
+
+def clean_expired_cache(db_path: str = DEFAULT_DB_PATH, output_dir: str = DEFAULT_OUTPUT_DIR, expiration_days: int = CACHE_EXPIRATION_DAYS) -> None:
+    """Scans output directory for old plots/reports and purges expired database records.
+
+    Args:
+        db_path (str): Path to SQLite database file.
         output_dir (str): Directory containing generated charts and text reports.
-        expiration_days (int): Maximum allowed file age in days before purging.
+        expiration_days (int): Maximum allowed age in days before purging.
     """
     print("\n==================================================")
     print("🧹 [CLEANER] Starting automated system storage maintenance...")
 
-    # Clean Raw Data API Cache
-    print(f"📂 Scanning raw cache directory: '{raw_dir}'")
-    raw_deleted = _clean_directory(raw_dir, expiration_days, file_prefix=RAW_FILE_PREFIX)
+    # Clean Expired SQLite Records
+    print(f"📂 Scanning database: '{db_path}'")
+    db_rows_deleted = _clean_expired_database_records(db_path, expiration_days)
 
     # Clean Output Generated Reports and Visualizations
     print(f"📂 Scanning output reports/plots directory: '{output_dir}'")
-    output_deleted = _clean_directory(output_dir, expiration_days)
+    files_deleted = _clean_directory(output_dir, expiration_days)
 
-    total_deleted = raw_deleted + output_deleted
-    print(f"✅ [CLEANER] Maintenance complete. Total expired files purged: {total_deleted}")
+    print(f"✅ [CLEANER] Maintenance complete. (Purged: {db_rows_deleted} DB rows, {files_deleted} output files)")
     print("==================================================")
