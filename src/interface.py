@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import pandas as pd
 
 def get_user_demand_selection(df_or_list) -> tuple:
@@ -110,48 +111,39 @@ def display_anomalies_summary(anomalies: dict):
         print("✅ No anomalies detected in the selected demand types.")
 
 def get_user_datetime_filter() -> tuple:
-    """Asks the user to analyze all data or a specific datetime range.
+    """Prompts the user to enter a specific start and end datetime range.
 
     Returns:
-        tuple: (start_datetime, end_datetime) as datetime objects, or (None, None).
+        tuple: (start_datetime, end_datetime) as timezone-aware datetime objects.
     """
+    madrid_tz = ZoneInfo("Europe/Madrid")
+
     print("\n📅 DATA PERIOD FILTER")
-    print("1. Analyze all data (Full available range)")
-    print("2. Custom exact date and time range")
+    print("Please specify the temporal range for analysis.")
+    print("\nDate format: YYYY-MM-DD (e.g., 2026-07-03)")
+    print("Time format: HH:MM      (e.g., 22:00)")
 
     while True:
-        choice = input("Select an option (1-2): ").strip()
+        try:
+            print("\n--- Enter Start Period ---")
+            # Request and parse start datetime
+            start_date = input("Start Date: ").strip()
+            start_time = input("Start Time: ").strip()
+            # Combine both strings into a single datetime
+            start_dt = datetime.strptime(f"{start_date} {start_time}", "%Y-%m-%d %H:%M").replace(tzinfo=madrid_tz)
 
-        if choice == "1":
-            return None, None
+            print("\n--- Enter End Period ---")
+            # Request and parse end datetime
+            end_date = input("End Date: ").strip()
+            end_time = input("End Time: ").strip()
+            end_dt = datetime.strptime(f"{end_date} {end_time}", "%Y-%m-%d %H:%M").replace(tzinfo=madrid_tz)
 
-        elif choice == "2":
-            print("\nDate format: YYYY-MM-DD (e.g., 2026-07-03)")
-            print("Time format: HH:MM      (e.g., 22:00)")
+            # Ensure the range is chronologically valid
+            if start_dt >= end_dt:
+                print("❌ Error: Start period must be earlier than End period. Try again.\n")
+                continue
 
-            while True:
-                try:
-                    print("\n--- Enter Start Period ---")
-                    # Request and parse start datetime
-                    start_date = input("Start Date: ").strip()
-                    start_time = input("Start Time: ").strip()
-                    # Combine both strings into a single datetime
-                    start_dt = datetime.strptime(f"{start_date} {start_time}", "%Y-%m-%d %H:%M")
+            return start_dt, end_dt
 
-                    print("\n--- Enter End Period ---")
-                    # Request and parse end datetime
-                    end_date = input("End Date: ").strip()
-                    end_time = input("End Time: ").strip()
-                    end_dt = datetime.strptime(f"{end_date} {end_time}", "%Y-%m-%d %H:%M")
-
-                    # Ensure the range is chronologically valid
-                    if start_dt >= end_dt:
-                        print("❌ Error: Start period must be earlier than End period. Try again.\n")
-                        continue
-                    return start_dt, end_dt
-
-                except ValueError:
-                    print("❌ Invalid format. Please check your dates (YYYY-MM-DD) and times (HH:MM).\n")
-
-        else:
-            print("❌ Invalid selection. Please choose 1 or 2.")
+        except ValueError:
+            print("❌ Invalid format. Please check your dates (YYYY-MM-DD) and times (HH:MM).\n")
