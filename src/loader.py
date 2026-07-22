@@ -45,32 +45,45 @@ def fetch_and_combine_esios_data(selected_demands: list, start_dt: datetime, end
     # Check if requested records already exist in SQLite
     df_cached = load_demand_data(selected_demands, start_iso, end_iso)
 
-    # Check if all requested demand indicators are fully present in the returned cache
-    cached_demands = df_cached["name"].unique() if not df_cached.empty else []
-    missing_demands = [d for d in selected_demands if d not in cached_demands]
+    # Check if all requested demand indicators AND full time bounds are present in cache
+    is_cache_complete = False
 
-    if not df_cached.empty and not missing_demands:
+    if not df_cached.empty:
+        cached_demands = set(df_cached["name"].unique())
+        all_demands_present = set(selected_demands).issubset(cached_demands)
+
+        # Ensure min and max timestamps in SQLite fully cover the requested period
+        min_cached = df_cached["datetime"].min()
+        max_cached = df_cached["datetime"].max()
+
+        starts_covered = min_cached <= start_dt
+        ends_covered = max_cached >= end_dt
+
+        if all_demands_present and starts_covered and ends_covered:
+            is_cache_complete = True
+
+    if is_cache_complete:
         print("📦 Data successfully loaded from local SQLite database cache.")
         return df_cached
 
-    # Retrieve missing demand series directly from e-sios
-    demands_to_fetch = missing_demands if not df_cached.empty else selected_demands
+    # If cache is partial or incomplete, request the full range from API
+    print("🌐 Local cache incomplete or missing hours. Requesting full range from e·sios API...")
+
     headers = {
         "Accept": "application/json; application/vnd.esios-api-v1+json",
         "Content-Type": "application/json",
         "x-api-key": api_token
     }
     params = {"start_date": start_iso, "end_date": end_iso}
-    fetched_dataframes = []
 
-    for demand_name in demands_to_fetch:
+    for demand_name in selected_demands:
         indicator_id = ESIOS_INDICATORS.get(demand_name)
         if not indicator_id:
             print(f"⚠️ Warning: No API indicator ID configured for '{demand_name}'. Skipping.")
             continue
 
         # Miss: Request raw response from remote server gateway
-        print(f"🌐 Fetching '{demand_name}' (ID: {indicator_id}) from e·sios API...")
+        print(f"📥 Fetching '{demand_name}' (ID: {indicator_id}) from e·sios API...")
         url = f"https://api.esios.ree.es/indicators/{indicator_id}"
 
         try:
@@ -109,21 +122,14 @@ def fetch_and_combine_esios_data(selected_demands: list, start_dt: datetime, end
 
             # Store freshly fetched records in SQLite
             save_demand_dataframe(df_indicator)
-            fetched_dataframes.append(df_indicator)
 
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"Failed to fetch indicator {indicator_id} ({demand_name}): {e}")
 
-    # Combine cached and newly fetched DataFrames if necessary
-    all_dataframes = []
-    if not df_cached.empty:
-        all_dataframes.append(df_cached)
+    # Query the database once more to retrieve the newly consolidated, clean dataset
+    final_df = load_demand_data(selected_demands, start_iso, end_iso)
 
-    if not all_dataframes:
+    if final_df.empty:
         raise ValueError("No data could be retrieved for any of the selected demand types.")
 
-    # Consolidate, deduplicate, and sort the final dataset
-    combined_df = pd.concat(all_dataframes, ignore_index=True)
-    combined_df = combined_df.drop_duplicates(subset=["name", "datetime"]).sort_values("datetime").reset_index(drop=True)
-
-    return combined_df
+    return final_df
