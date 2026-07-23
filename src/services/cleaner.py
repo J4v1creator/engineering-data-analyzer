@@ -1,8 +1,8 @@
 import os
 import sqlite3
 import time
-from src.constants import CACHE_EXPIRATION_DAYS, DEFAULT_DB_PATH, DEFAULT_OUTPUT_DIR
-from src.database import get_connection
+from config.settings import CACHE_EXPIRATION_DAYS, DEFAULT_DB_PATH, DEFAULT_OUTPUT_DIR
+from src.api.database import get_connection
 
 def _clean_directory(target_dir: str, expiration_days: int) -> int:
     """Scans a directory and deletes files older than the expiration threshold.

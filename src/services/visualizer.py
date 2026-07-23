@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
-from src.constants import DEFAULT_OUTPUT_DIR, DEMAND_COLOR_PALETTE, DEMAND_TRANSLATIONS
+from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_COLOR_PALETTE, DEMAND_TRANSLATIONS
 
 def plot_energy_demand(df: pd.DataFrame, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
     """Generates a multi-line plot of electricity demand over time and saves it as an image.

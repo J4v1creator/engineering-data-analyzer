@@ -1,5 +1,5 @@
 import pandas as pd
-from src.constants import DEFAULT_ANOMALY_THRESHOLD
+from config.settings import DEFAULT_ANOMALY_THRESHOLD
 
 def calculate_energy_statistics(df: pd.DataFrame) -> dict[str, dict[str, float | int | str]]:
     """Calculates key statistical metrics (max, min, mean, median, std_dev) broken

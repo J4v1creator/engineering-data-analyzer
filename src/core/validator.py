@@ -1,5 +1,5 @@
 import pandas as pd
-from src.constants import EXPECTED_COLUMNS
+from config.settings import EXPECTED_COLUMNS
 
 def validate_dataset(df: pd.DataFrame) -> bool:
     """Validates the dataset structure, column types, missing values, and duplicates.

@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 import pandas as pd
-from src.constants import DEFAULT_OUTPUT_DIR, DEMAND_TRANSLATIONS
+from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_TRANSLATIONS
 
 def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict | None = None, anomalies: dict | None = None,
     start_dt: datetime | None = None,  end_dt: datetime | None = None, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:

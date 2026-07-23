@@ -4,8 +4,8 @@ from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 import pandas as pd
 import requests
-from src.constants import ESIOS_INDICATORS
-from src.database import load_demand_data, save_demand_dataframe
+from config.settings import ESIOS_INDICATORS
+from src.api.database import load_demand_data, save_demand_dataframe
 
 # Load environment variables from .env file
 load_dotenv()

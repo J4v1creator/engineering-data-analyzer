@@ -2,7 +2,7 @@ from datetime import datetime
 import os
 import sqlite3
 import pandas as pd
-from src.constants import DEFAULT_DB_PATH
+from config.settings import DEFAULT_DB_PATH
 
 def get_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
     """Creates and returns a connection to the SQLite database.
