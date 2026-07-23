@@ -1,16 +1,18 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from zoneinfo import ZoneInfo
 import pandas as pd
 
-def get_user_demand_selection(df_or_list) -> tuple:
-    """Displays the available electricity demand types found in the dataset
-    and prompts the user to select which ones to analyze using numbers.
+def get_user_demand_selection(df_or_list: pd.DataFrame | list[str]) -> tuple[list[str], list[str]]:
+    """Displays available electricity demand types and prompts the user to select targets.
 
     Args:
-        df_or_list (pd.DataFrame or list): The validated dataset or a list of demand types.
+        df_or_list (pd.DataFrame | list[str]): Dataset DataFrame or list of demand types.
 
     Returns:
-        tuple: A tuple containing (selected_demands, all_available_demands).
+        tuple[list[str], list[str]]: Selected demand categories and all available categories.
+
+    Raises:
+        ValueError: If the user input is invalid or if no valid selections are made.
     """
     if isinstance(df_or_list, list):
         available_demands = df_or_list
@@ -24,7 +26,7 @@ def get_user_demand_selection(df_or_list) -> tuple:
     for i, demand in enumerate(available_demands, start=1):
         print(f"  [{i}] {demand}")
 
-    # The last option is always dynamically mapped to "Analyze All"
+    # The last option is mapped to analyze all demands
     all_options_idx = len(available_demands) + 1
     print(f"  [{all_options_idx}] ANALYZE ALL DEMANDS")
 
@@ -53,23 +55,24 @@ def get_user_demand_selection(df_or_list) -> tuple:
         except ValueError:
             print("❌ Input format error. Please use numbers separated by commas only (e.g., 1,2).")
 
-def ask_comparison_targets(all_demands: list, selected_demands: list) -> tuple:
-    """Prompts the user to select exactly two demand types for the advanced 
-    comparison out of the previously selected options.
+def ask_comparison_targets(all_demands: list[str], selected_demands: list[str]) -> tuple[str, str]:
+    """Prompts the user to select exactly two distinct demand types for cross-analysis.
 
     Args:
-        all_demands (list): A list of all unique demand types available.
-        selected_demands (list): A list of strings containing the names of the 
+        all_demands (list[str]): A list of all unique demand types available.
+        selected_demands (list[str]): A list of strings containing the names of the 
         demands previously selected by the user.
 
     Returns:
-        tuple: A tuple containing two strings (model_a, model_b) with the names 
-        of the two distinct demand types chosen for comparison.
+        tuple[str, str]: Names of the two distinct demand types selected for comparison.
+
+    Raises:
+        ValueError: If the user fails to select exactly two distinct demand types.
     """
     print("\n🔍 --- ADVANCED COMPARISON SELECTION ---")
     print("You selected multiple demands. Which two would you like to cross-analyze?")
 
-    # Create a map to link the global index (1-based) to each selected demand
+    # Map global index to each active demand option
     indexed_selection = {}
     for demand in selected_demands:
         global_idx = all_demands.index(demand) + 1
@@ -81,7 +84,7 @@ def ask_comparison_targets(all_demands: list, selected_demands: list) -> tuple:
             user_input = input("\nSelect exactly two numbers separated by a comma (e.g., 1,2): ").strip()
             indices = [int(x.strip()) for x in user_input.split(",")]
 
-            # Validate we got exactly two numbers and both are inside our allowed selection map
+            # Validate that exactly two valid choices were made
             if len(indices) == 2 and all(idx in indexed_selection for idx in indices):
                 # Ensure they didn't pick the exact same number twice (e.g., 1,1)
                 if indices[0] == indices[1]:
@@ -91,18 +94,18 @@ def ask_comparison_targets(all_demands: list, selected_demands: list) -> tuple:
                 model_a = indexed_selection[indices[0]]
                 model_b = indexed_selection[indices[1]]
                 return model_a, model_b
-            else:
-                valid_options = ", ".join(map(str, indexed_selection.keys()))
-                print(f"❌ Invalid choice. Please enter exactly two numbers from your active options: [{valid_options}].")
+
+            valid_options = ", ".join(map(str, indexed_selection.keys()))
+            print(f"❌ Invalid choice. Please enter exactly two numbers from your active options: [{valid_options}].")
+
         except ValueError:
             print("❌ Input format error. Please use numbers separated by commas only (e.g., 1,2).")
 
-def display_anomalies_summary(anomalies: dict):
+def display_anomalies_summary(anomalies: dict[str, list]) -> None:
     """Prints a clean, formatted summary of the detected anomalies in the console.
 
     Args:
-        anomalies (dict): A dictionary where keys are demand names (str)
-        and values are lists of detected issues.
+        anomalies (dict[str, list]): Mapping of demand names to lists of detected issues.
     """
     if anomalies:
         for demand_name, issues in anomalies.items():
@@ -110,11 +113,15 @@ def display_anomalies_summary(anomalies: dict):
     else:
         print("✅ No anomalies detected in the selected demand types.")
 
-def get_user_datetime_filter() -> tuple:
+def get_user_datetime_filter() -> tuple[datetime, datetime]:
     """Prompts the user to enter a specific start and end datetime range.
 
     Returns:
-        tuple: (start_datetime, end_datetime) as timezone-aware datetime objects.
+        tuple[datetime, datetime]: Start and end boundaries as timezone-aware datetime objects.
+
+    Raises:
+        ValueError: If the user inputs invalid date or time formats, or if the start date
+            is not earlier than the end date.
     """
     madrid_tz = ZoneInfo("Europe/Madrid")
 

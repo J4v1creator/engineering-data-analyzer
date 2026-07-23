@@ -1,7 +1,6 @@
 from datetime import datetime
 import os
 import sqlite3
-from typing import List
 import pandas as pd
 from src.constants import DEFAULT_DB_PATH
 
@@ -17,7 +16,6 @@ def get_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
     """
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     conn = sqlite3.connect(db_path)
-    # Enable dict-like column access
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -43,10 +41,10 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
             )
         """)
 
-        # Create index on datetime for ultra-fast time range queries
+        # Composite index for optimized filtered queries by demand name and time range
         cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_demand_datetime 
-            ON demand_records (datetime);
+            CREATE INDEX IF NOT EXISTS idx_demand_name_datetime 
+            ON demand_records (name, datetime);
         """)
 
         conn.commit()
@@ -61,7 +59,7 @@ def save_demand_dataframe(df: pd.DataFrame, db_path: str = DEFAULT_DB_PATH) -> i
         db_path (str): Path to the SQLite database file.
 
     Returns:
-        int: Total number of new rows inserted.
+        int: Total number of new rows inserted into the database.
     """
     if df.empty:
         return 0
@@ -83,15 +81,16 @@ def save_demand_dataframe(df: pd.DataFrame, db_path: str = DEFAULT_DB_PATH) -> i
     """
 
     with get_connection(db_path) as conn:
+        initial_changes = conn.total_changes
         cursor = conn.cursor()
         cursor.executemany(insert_query, records)
         conn.commit()
-        inserted_count = cursor.rowcount
+        inserted_count = conn.total_changes - initial_changes
 
     print(f"💾 [DATABASE] Inserted {inserted_count} new records into SQLite database.")
     return inserted_count
 
-def load_demand_data(demands: List[str], start_iso: str, end_iso: str, db_path: str = DEFAULT_DB_PATH) -> pd.DataFrame:
+def load_demand_data(demands: list[str], start_iso: str, end_iso: str, db_path: str = DEFAULT_DB_PATH) -> pd.DataFrame:
     """Loads demand records from SQLite matching selected demand names and time range.
 
     Args:
@@ -114,7 +113,7 @@ def load_demand_data(demands: List[str], start_iso: str, end_iso: str, db_path: 
     if isinstance(end_iso, datetime):
         end_iso = end_iso.isoformat()
 
-    # Prepare dynamic placeholders for the IN clause (?, ?, ?)
+    # Dynamic parameter placeholders for SQL query
     placeholders = ", ".join(["?"] * len(demands))
     query = f"""
         SELECT indicator_id AS id, name, geoname, value, datetime
@@ -131,7 +130,7 @@ def load_demand_data(demands: List[str], start_iso: str, end_iso: str, db_path: 
         df = pd.read_sql_query(query, conn, params=params)
 
     if not df.empty:
-        # Restore timezone-aware datetime objects matching mainland Madrid time
+        # Convert datetime column back to timezone-aware objects
         df["datetime"] = pd.to_datetime(df["datetime"], utc=True).dt.tz_convert("Europe/Madrid")
 
     return df

@@ -1,6 +1,5 @@
 import sqlite3
 import sys
-import pandas as pd
 from src.analyzer import calculate_energy_statistics, compare_demand_models, detect_demand_anomalies
 from src.cleaner import clean_expired_cache
 from src.constants import ESIOS_INDICATORS
@@ -11,7 +10,7 @@ from src.report import generate_text_report
 from src.validator import validate_dataset
 from src.visualizer import plot_energy_demand
 
-def main():
+def main() -> None:
     """Main orchestrator for the energy demand data analysis pipeline.
 
     Handles user configuration, interactive CLI choices, data fetching (API/Cache),

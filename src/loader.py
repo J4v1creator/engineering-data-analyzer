@@ -10,12 +10,12 @@ from src.database import load_demand_data, save_demand_dataframe
 # Load environment variables from .env file
 load_dotenv()
 
-def fetch_and_combine_esios_data(selected_demands: list, start_dt: datetime, end_dt: datetime) -> pd.DataFrame:
-    """Fetches selected energy indicators from the e-sios API or SQLite database cache,
-    and unifies them into a timezone-aware DataFrame ready for validation.
+def fetch_and_combine_esios_data(selected_demands: list[str], start_dt: datetime, end_dt: datetime) -> pd.DataFrame:
+    """Fetches selected energy indicators from the local SQLite database cache,
+    or queries the e·sios API if cached data is missing or incomplete.
 
     Args:
-        selected_demands (list): List of demand names chosen by the user.
+        selected_demands (list[str]): List of demand names chosen by the user.
         start_dt (datetime): Start boundary of the analysis period.
         end_dt (datetime): End boundary of the analysis period.
 
@@ -23,15 +23,14 @@ def fetch_and_combine_esios_data(selected_demands: list, start_dt: datetime, end
         pd.DataFrame: A unified, timezone-aware DataFrame ready for processing.
 
     Raises:
-        ValueError: If the 'ESIOS_API_TOKEN' is missing from the environment variables,
-                    or if no data could be retrieved for any of the selected types.
-        RuntimeError: If the remote HTTP request to the e-sios gateway fails.
+        ValueError: If 'ESIOS_API_TOKEN' is missing, or if no data could be retrieved.
+        RuntimeError: If an HTTP request to the e·sios API fails.
     """
     api_token = os.getenv("ESIOS_API_TOKEN")
     if not api_token:
         raise ValueError("Critical Error: 'ESIOS_API_TOKEN' missing in .env file.")
 
-    # Assign Spain local timezone (Europe/Madrid) to prevent UTC offset shifts
+    # Assign Spain local timezone (Europe/Madrid) to prevent timezone offsets
     madrid_tz = ZoneInfo("Europe/Madrid")
     if start_dt.tzinfo is None:
         start_dt = start_dt.replace(tzinfo=madrid_tz)
@@ -42,10 +41,10 @@ def fetch_and_combine_esios_data(selected_demands: list, start_dt: datetime, end
     start_iso = start_dt.isoformat()
     end_iso = end_dt.isoformat()
 
-    # Check if requested records already exist in SQLite
+    # Query local SQLite database for cached records
     df_cached = load_demand_data(selected_demands, start_iso, end_iso)
 
-    # Check if all requested demand indicators AND full time bounds are present in cache
+    # Check if all requested demand indicators AND full time range exist in cache
     is_cache_complete = False
 
     if not df_cached.empty:
@@ -66,7 +65,7 @@ def fetch_and_combine_esios_data(selected_demands: list, start_dt: datetime, end
         print("📦 Data successfully loaded from local SQLite database cache.")
         return df_cached
 
-    # If cache is partial or incomplete, request the full range from API
+    # Request data from e·sios API if local cache is incomplete or empty
     print("🌐 Local cache incomplete or missing hours. Requesting full range from e·sios API...")
 
     headers = {
@@ -75,6 +74,8 @@ def fetch_and_combine_esios_data(selected_demands: list, start_dt: datetime, end
         "x-api-key": api_token
     }
     params = {"start_date": start_iso, "end_date": end_iso}
+
+    fetched_frames = []
 
     for demand_name in selected_demands:
         indicator_id = ESIOS_INDICATORS.get(demand_name)
@@ -116,17 +117,21 @@ def fetch_and_combine_esios_data(selected_demands: list, start_dt: datetime, end
 
             df_indicator = pd.DataFrame(records)
 
-            # Normalize chronological series into dynamic Madrid mainland local time
+            # Convert datetime column to timezone-aware Europe/Madrid standard
             df_indicator["datetime"] = pd.to_datetime(df_indicator["datetime"], utc=True)
             df_indicator["datetime"] = df_indicator["datetime"].dt.tz_convert('Europe/Madrid')
 
-            # Store freshly fetched records in SQLite
-            save_demand_dataframe(df_indicator)
+            fetched_frames.append(df_indicator)
 
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"Failed to fetch indicator {indicator_id} ({demand_name}): {e}")
 
-    # Query the database once more to retrieve the newly consolidated, clean dataset
+    # Save all freshly fetched records to SQLite in a single transaction
+    if fetched_frames:
+        combined_fetched_df = pd.concat(fetched_frames, ignore_index=True)
+        save_demand_dataframe(combined_fetched_df)
+
+    # Retrieve consolidated dataset from local database
     final_df = load_demand_data(selected_demands, start_iso, end_iso)
 
     if final_df.empty:

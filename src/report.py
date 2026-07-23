@@ -3,17 +3,18 @@ from datetime import datetime
 import pandas as pd
 from src.constants import DEFAULT_OUTPUT_DIR, DEMAND_TRANSLATIONS
 
-def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict = None, anomalies: dict = None, start_dt: datetime = None,  end_dt: datetime = None, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
+def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict | None = None, anomalies: dict | None = None,
+    start_dt: datetime | None = None,  end_dt: datetime | None = None, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
     """Generates a structured, professional text report summarizing the full
     statistical insights for each specific type of electricity demand.
 
     Args:
         df (pd.DataFrame): The validated dataset.
         stats (dict): The dictionary of statistics calculated by the analyzer.
-        comp_stats (dict, optional): The advanced comparison statistics. Defaults to None.
-        anomalies (dict, optional): The dictionary of detected anomalies. Defaults to None.
-        start_dt (datetime, optional): The start datetime of the analyzed range.
-        end_dt (datetime, optional): The end datetime of the analyzed range.
+        comp_stats (dict | None): The advanced comparison statistics. Defaults to None.
+        anomalies (dict | None): The dictionary of detected anomalies. Defaults to None.
+        start_dt (datetime | None): The start datetime of the analyzed range.
+        end_dt (datetime | None): The end datetime of the analyzed range.
         output_dir (str): Directory where the report will be saved.
 
     Returns:

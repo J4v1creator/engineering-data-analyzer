@@ -5,22 +5,19 @@ DEFAULT_DB_DIR = "data/database"
 DEFAULT_DB_PATH = os.path.join(DEFAULT_DB_DIR, "energy_data.db")
 DEFAULT_OUTPUT_DIR = "data/output"
 
-# Prefix to identify API files
-RAW_FILE_PREFIX = "esios_demand"
-
 # Analysis configuration
 DEFAULT_ANOMALY_THRESHOLD = 2.0
 
-# Cache expiration in days for API data
+# Cache expiration limit in days
 CACHE_EXPIRATION_DAYS = 7
 
-# Expected schema for strict type checking
+# Expected data schema for strict type validation
 EXPECTED_COLUMNS = {
     "id": "int64",
     "name": "object",
     "geoname": "object",
     "value": "int64",
-    "datetime": "datetime64[ns, pytz.FixedOffset(120)]"  # Matches +02:00 timezone
+    "datetime": "datetime64[ns, pytz.FixedOffset(120)]"  # REE standard timezone offset (+02:00)
 }
 
 # E·sios API Indicators Mapping

@@ -6,8 +6,7 @@ import pandas as pd
 from src.constants import DEFAULT_OUTPUT_DIR, DEMAND_COLOR_PALETTE, DEMAND_TRANSLATIONS
 
 def plot_energy_demand(df: pd.DataFrame, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
-    """Generates a multi-line plot of electricity demand over time.
-    Separates different demand types by the 'name' column.
+    """Generates a multi-line plot of electricity demand over time and saves it as an image.
 
     Args:
         df (pd.DataFrame): The validated dataset containing 'datetime', 'value', and 'name'.
@@ -23,7 +22,7 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str = DEFAULT_OUTPUT_DIR) -
         os.makedirs(output_dir)
         print(f"📁 Created output directory at: '{output_dir}'")
 
-    # Dynamic Filename Generation based on Dataset Temporal Range
+    # Dynamic filename generation based on dataset temporal range
     min_dt = df["datetime"].min()
     max_dt = df["datetime"].max()
 
@@ -40,9 +39,9 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str = DEFAULT_OUTPUT_DIR) -
 
     # Setup the plot figure size and style
     plt.figure(figsize=(14, 7))
-    plt.style.use('seaborn-v0_8-whitegrid')  # Clean and modern grid style
+    plt.style.use('seaborn-v0_8-whitegrid')
 
-    # Group by 'name' and plot each line separately
+    # Group by demand name and plot each series independently
     for name_spanish, group_df in df.groupby("name"):
         # Sort by datetime just in case the data is shuffled
         group_sorted = group_df.sort_values("datetime")

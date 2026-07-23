@@ -5,10 +5,10 @@ from src.constants import CACHE_EXPIRATION_DAYS, DEFAULT_DB_PATH, DEFAULT_OUTPUT
 from src.database import get_connection
 
 def _clean_directory(target_dir: str, expiration_days: int) -> int:
-    """Helper function to scan a directory and delete files older than expiration_days.
+    """Scans a directory and deletes files older than the expiration threshold.
 
     Args:
-        target_dir (str): Directory to clean.
+        target_dir (str): Directory path to clean.
         expiration_days (int): File age threshold in days.
 
     Returns:
@@ -26,7 +26,7 @@ def _clean_directory(target_dir: str, expiration_days: int) -> int:
     for filename in os.listdir(target_dir):
         filepath = os.path.join(target_dir, filename)
 
-        # Skip directories if any exist inside
+        # Skip subdirectories if present
         if not os.path.isfile(filepath):
             continue
 
@@ -46,7 +46,7 @@ def _clean_directory(target_dir: str, expiration_days: int) -> int:
     return deleted_count
 
 def _clean_expired_database_records(db_path: str, expiration_days: int) -> int:
-    """Deletes records from SQLite database older than expiration_days.
+    """Deletes records from SQLite database older than the expiration threshold.
 
     Args:
         db_path (str): Path to the SQLite database file.
@@ -61,15 +61,17 @@ def _clean_expired_database_records(db_path: str, expiration_days: int) -> int:
     deleted_rows = 0
     try:
         with get_connection(db_path) as conn:
+            initial_changes = conn.total_changes
             cursor = conn.cursor()
-            # SQLite modifier '-X days' subtracts X days from current timestamp
+
+            # Ensure datetime comparison parses ISO strings properly
             query = """
                 DELETE FROM demand_records
                 WHERE datetime < DATETIME('now', ? || ' days');
             """
             cursor.execute(query, (f"-{expiration_days}",))
             conn.commit()
-            deleted_rows = cursor.rowcount
+            deleted_rows = conn.total_changes - initial_changes
 
         if deleted_rows > 0:
             print(f"🗑️ [CLEANER] Purged {deleted_rows} expired records from SQLite database.")
@@ -80,7 +82,7 @@ def _clean_expired_database_records(db_path: str, expiration_days: int) -> int:
     return deleted_rows
 
 def clean_expired_cache(db_path: str = DEFAULT_DB_PATH, output_dir: str = DEFAULT_OUTPUT_DIR, expiration_days: int = CACHE_EXPIRATION_DAYS) -> None:
-    """Scans output directory for old plots/reports and purges expired database records.
+    """Scans system output directory and purges expired database records.
 
     Args:
         db_path (str): Path to SQLite database file.
@@ -90,11 +92,11 @@ def clean_expired_cache(db_path: str = DEFAULT_DB_PATH, output_dir: str = DEFAUL
     print("\n==================================================")
     print("🧹 [CLEANER] Starting automated system storage maintenance...")
 
-    # Clean Expired SQLite Records
+    # Clean expired database records
     print(f"📂 Scanning database: '{db_path}'")
     db_rows_deleted = _clean_expired_database_records(db_path, expiration_days)
 
-    # Clean Output Generated Reports and Visualizations
+    # Clean generated output reports and visualizations
     print(f"📂 Scanning output reports/plots directory: '{output_dir}'")
     files_deleted = _clean_directory(output_dir, expiration_days)
 

@@ -1,21 +1,21 @@
 import pandas as pd
 from src.constants import DEFAULT_ANOMALY_THRESHOLD
 
-def calculate_energy_statistics(df: pd.DataFrame) -> dict:
-    """Calculates key statistical metrics (max, min, mean) broken down
-    by each unique electricity demand type in the 'name' column.
+def calculate_energy_statistics(df: pd.DataFrame) -> dict[str, dict[str, float | int | str]]:
+    """Calculates key statistical metrics (max, min, mean, median, std_dev) broken
+    down by each unique electricity demand type present in the dataset.
 
     Args:
         df (pd.DataFrame): The validated energy DataFrame.
 
     Returns:
-        dict: A nested dictionary containing stats for each demand type.
+        dict[str, dict[str, float | int | str]]: A nested dictionary containing stats for each demand type.
     """
     print("\n🔍 Calculating advanced statistics per demand type...")
 
     stats_per_type = {}
 
-    # Group by 'name' to isolate each demand type (Real, Prevista, Programada...)
+    # Group by demand type to compute isolated metrics
     for name_type, group_df in df.groupby("name", sort=False):
         values = group_df["value"]
 
@@ -36,16 +36,16 @@ def calculate_energy_statistics(df: pd.DataFrame) -> dict:
 
     return stats_per_type
 
-def compare_demand_models(df: pd.DataFrame, targets: tuple = None) -> dict:
+def compare_demand_models(df: pd.DataFrame, targets: tuple[str, str] | None = None) -> dict[str, str | float | int]:
     """Performs advanced comparative analysis dynamically between the first two 
     selected electricity demand types available in the filtered dataset.
 
     Args:
         df (pd.DataFrame): The filtered energy DataFrame.
-        targets (tuple, optional): A tuple containing (model_a, model_b) names to compare.
+        targets (tuple[str, str] | None): Pair of demand series names (model_a, model_b).
 
     Returns:
-        dict: A dictionary containing comparative metrics, or empty if targets are missing or invalid.
+        dict[str, str | float | int]: Comparative metrics dictionary or empty dict if targets are missing/invalid.
     """
     # Safe guard: Skip if no explicit targets are passed or the format is invalid
     if not targets or len(targets) != 2:
@@ -73,7 +73,7 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple = None) -> dict:
 
     # Inform the user if part of the dataset was excluded due to missing values
     if rows_before != rows_after:
-        print(f"ℹ️ {rows_before - rows_after} timestamps were excluded because one of the compared demand series had no data.")
+        print(f"ℹ️ {rows_before - rows_after} timestamps were excluded due to missing values in one of the series.")
 
     series_a = pivoted_df[model_a]
     series_b = pivoted_df[model_b]
@@ -107,7 +107,7 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple = None) -> dict:
     print("✅ Advanced comparative analysis completed successfully.")
     return comparison_stats
 
-def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY_THRESHOLD) -> dict:
+def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY_THRESHOLD) -> dict[str, list[dict]]:
     """Detects abnormal spikes or drops in electricity demand using the Z-Score method.
     An anomaly is defined as any value that deviates from the mean by more than
     'threshold' times the standard deviation.
@@ -117,7 +117,7 @@ def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY
         threshold (float): The Z-score cutoff used to detect anomalies.
 
     Returns:
-        dict: A dictionary categorized by demand type containing lists of detected anomalies.
+        dict[str, list[dict]]: A dictionary categorized by demand type containing lists of detected anomalies.
     """
     print("\n🔍 Scanning for statistical anomalies in energy demand...")
     anomalies_report = {}
@@ -136,8 +136,7 @@ def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY
         if std_dev == 0:
             continue
 
-        # Calculate Z-score for every row in this demand type
-        # Z = (x - mean) / std_dev
+        # Z-Score calculation: Z = (x - mean) / std_dev
         z_scores = (demand_data["value"] - mean_val) / std_dev
 
         # Filter rows where the absolute Z-score breaks the threshold
