@@ -1,14 +1,14 @@
 import sqlite3
 import sys
-from src.core.analyzer import calculate_energy_statistics, compare_demand_models, detect_demand_anomalies
-from src.services.cleaner import clean_expired_cache
+from src.analyzer import calculate_energy_statistics, compare_demand_models, detect_demand_anomalies
+from src.cleaner import clean_expired_cache
 from config.settings import ESIOS_INDICATORS
-from src.api.database import init_db
-from src.ui.cli import ask_comparison_targets, display_anomalies_summary, get_user_datetime_filter, get_user_demand_selection
-from src.api.client import fetch_and_combine_esios_data
-from src.services.report import generate_text_report
-from src.core.validator import validate_dataset
-from src.services.visualizer import plot_energy_demand
+from src.database import init_db
+from src.cli import ask_comparison_targets, display_anomalies_summary, get_user_datetime_filter, get_user_demand_selection
+from src.esios_client import fetch_and_combine_esios_data
+from src.report import generate_text_report
+from src.validator import validate_dataset
+from src.visualizer import plot_energy_demand
 
 def main() -> None:
     """Main orchestrator for the energy demand data analysis pipeline.

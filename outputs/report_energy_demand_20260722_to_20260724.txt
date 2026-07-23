@@ -1,48 +1,48 @@
 ==================================================
 ENERGY CONSUMPTION ANALYSIS REPORT (AUTOMATED)
 ==================================================
-Date of Analysis:  2026-07-22 20:04:37
-Analysis Period (Data): 2026-07-20 22:05 to 2026-07-22 01:45
+Date of Analysis:  2026-07-24 01:34:04
+Analysis Period (Data): 2026-07-22 23:35 to 2026-07-24 00:05
 Data Source:       Red Eléctrica de España (REE)
 
 --------------------------------------------------
 1. DATASET METADATA
 --------------------------------------------------
-- Total Rows:       1324
+- Total Rows:       1176
 - Total Columns:    5
 - Column Names:     id, name, geoname, value, datetime
-- Selected Range:   [2026-07-20 22:05 to 2026-07-22 01:45]
+- Selected Range:   [2026-07-22 23:35 to 2026-07-24 00:05]
 
 --------------------------------------------------
 2. STATISTICAL SUMMARY (DEMAND IN MW)
 --------------------------------------------------
---- REAL-TIME DEMAND ---
-- Maximum Demand:  42228 MW (At: 2026-07-21 14:50)
-- Minimum Demand:  26442 MW
-- Mean (Average):  35345.78 MW
-- Median:          36069.00 MW
-- Std. Deviation:  5272.46 MW
+--- TOTAL PENINSULAR SCHEDULED DEMAND ---
+- Maximum Demand:  42543 MW (At: 2026-07-23 16:30)
+- Minimum Demand:  27302 MW
+- Mean (Average):  36343.31 MW
+- Median:          38122.50 MW
+- Std. Deviation:  5535.25 MW
 
 --- EXPECTED DEMAND ---
-- Maximum Demand:  41666 MW (At: 2026-07-21 14:10)
-- Minimum Demand:  26254 MW
-- Mean (Average):  35220.03 MW
-- Median:          35542.00 MW
-- Std. Deviation:  5157.77 MW
+- Maximum Demand:  42711 MW (At: 2026-07-23 13:50)
+- Minimum Demand:  27178 MW
+- Mean (Average):  36194.86 MW
+- Median:          37723.50 MW
+- Std. Deviation:  5390.16 MW
 
 --- SCHEDULED DEMAND ---
-- Maximum Demand:  38792 MW (At: 2026-07-21 20:15)
-- Minimum Demand:  26602 MW
-- Mean (Average):  33502.77 MW
-- Median:          34238.00 MW
-- Std. Deviation:  3745.36 MW
+- Maximum Demand:  39313 MW (At: 2026-07-23 20:00)
+- Minimum Demand:  27302 MW
+- Mean (Average):  34233.50 MW
+- Median:          35032.50 MW
+- Std. Deviation:  3942.58 MW
 
---- TOTAL PENINSULAR SCHEDULED DEMAND ---
-- Maximum Demand:  41999 MW (At: 2026-07-21 14:30)
-- Minimum Demand:  26602 MW
-- Mean (Average):  35284.20 MW
-- Median:          36505.00 MW
-- Std. Deviation:  5250.04 MW
+--- REAL-TIME DEMAND ---
+- Maximum Demand:  42822 MW (At: 2026-07-23 14:40)
+- Minimum Demand:  27375 MW
+- Mean (Average):  36375.30 MW
+- Median:          38164.00 MW
+- Std. Deviation:  5460.09 MW
 
 --------------------------------------------------
 3. ADVANCED MODEL COMPARISON
@@ -50,12 +50,12 @@ Data Source:       Red Eléctrica de España (REE)
 Comparison Baseline (Model A): Real-Time Demand
 Compared Target     (Model B): Expected Demand
 
-- Mean Difference (A - B):      125.75 MW
-- Maximum Absolute Deviation:   1284 MW
-    ↳ Occurred At:                2026-07-20 22:10
-    ↳ Directional Error (A - B):   1284 MW
-- Mean Absolute Pct. Error:     0.98%
-- Pearson Correlation (r):      0.9967
+- Mean Difference (A - B):      180.45 MW
+- Maximum Absolute Deviation:   1324 MW
+    ↳ Occurred At:                2026-07-23 21:50
+    ↳ Directional Error (A - B):   1324 MW
+- Mean Absolute Pct. Error:     0.90%
+- Pearson Correlation (r):      0.9975
 
 --------------------------------------------------
 4. STATISTICAL ANOMALY DETECTION (Z-SCORE > 2.0)

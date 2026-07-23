@@ -1,9 +1,15 @@
 import os
+from pathlib import Path
 
-# Base storage paths
-DEFAULT_DB_DIR = "data/database"
-DEFAULT_DB_PATH = os.path.join(DEFAULT_DB_DIR, "energy_data.db")
-DEFAULT_OUTPUT_DIR = "data/output"
+# Base storage directory paths (resolved dynamically relative to project root)
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_DIR / "data"
+DEFAULT_OUTPUT_DIR = str(BASE_DIR / "outputs")
+DEFAULT_DB_PATH = str(DATA_DIR / "esios_cache.db")
+
+# Ensure required storage directories exist at application runtime
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+Path(DEFAULT_OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
 
 # Analysis configuration
 DEFAULT_ANOMALY_THRESHOLD = 2.0
