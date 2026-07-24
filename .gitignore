@@ -1,9 +1,27 @@
+# Environment and secrets
 .env
 
+# Virtual environment
 .venv/
+env/
+venv/
 
+# Python bytecode & cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
 
-data/database/
-data/output/
+# Project dynamic data & database (Keep structure, ignore contents)
+data/*
+!data/.gitkeep
+
+# Project generated outputs (Keep structure, ignore contents)
+outputs/*
+!outputs/.gitkeep
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
