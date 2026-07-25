@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 # Base storage directory paths (resolved dynamically relative to project root)
@@ -31,7 +30,9 @@ ESIOS_INDICATORS = {
     "Demanda real": 1293,
     "Demanda prevista": 544,
     "Demanda programada": 545,
-    "Demanda Programada Total Peninsular": 1941
+    "Demanda Programada Total Peninsular": 1941,
+    "Término de facturación de energía activa del PVPC 2.0TD": 1001,
+    "Precio mercado SPOT Diario": 600
 }
 
 # Translation mapping for Red Eléctrica de España (REE) demand names
@@ -39,7 +40,13 @@ DEMAND_TRANSLATIONS = {
     "Demanda real": "Real-Time Demand",
     "Demanda prevista": "Expected Demand",
     "Demanda programada": "Scheduled Demand",
-    "Demanda Programada Total Peninsular": "Total Peninsular Scheduled Demand"
+    "Demanda Programada Total Peninsular": "Total Scheduled Demand"
+}
+
+# Translation mapping for Red Eléctrica de España (REE) price names
+PRICE_TRANSLATIONS = {
+    "Término de facturación de energía activa del PVPC 2.0TD": "PVPC Retail Electricity Price",
+    "Precio mercado SPOT Diario": "Daily Spot Market Price"
 }
 
 # UI/UX Plotting configurations
@@ -48,5 +55,11 @@ DEMAND_COLOR_PALETTE = {
     "Demanda prevista": {"color": "#ff7f0e"},
     "Demanda programada": {"color": "#2ca02c"},
     "Demanda Programada Total Peninsular": {"color": "#d62728"},
-    "default": {"color": "#7f7f7f"},
+    "default": {"color": "#7f7f7f"}
+}
+
+PRICE_COLOR_PALETTE = {
+    "Término de facturación de energía activa del PVPC 2.0TD": {"color": "#9467bd"},
+    "Precio mercado SPOT Diario": {"color": "#8c564b"},
+    "default": {"color": "#7f7f7f"}
 }
