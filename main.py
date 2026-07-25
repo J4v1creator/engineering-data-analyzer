@@ -5,7 +5,7 @@ from src.cleaner import clean_expired_cache
 from config.settings import ESIOS_INDICATORS
 from src.database import init_db
 from src.cli import ask_comparison_targets, display_anomalies_summary, get_user_datetime_filter, get_user_demand_selection
-from src.esios_client import fetch_and_combine_esios_data
+from src.esios_client import get_energy_data
 from src.report import generate_text_report
 from src.validator import validate_dataset
 from src.visualizer import plot_energy_demand
@@ -35,7 +35,7 @@ def main() -> None:
         selected_types, all_available_demands = get_user_demand_selection(available_demands)
 
         # Process: Retrieve, extract, and unify datasets from the cache layer or remote API
-        df_filtered = fetch_and_combine_esios_data(selected_types, start_dt, end_dt)
+        df_filtered = get_energy_data(selected_types, start_dt, end_dt)
 
         # Validate: Enforce structural constraints and structural quality checks
         validate_dataset(df_filtered)
