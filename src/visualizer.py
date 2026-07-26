@@ -3,21 +3,28 @@ from zoneinfo import ZoneInfo
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
-from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_COLOR_PALETTE, DEMAND_TRANSLATIONS
+from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_COLOR_PALETTE, DEMAND_TRANSLATIONS, PRICE_COLOR_PALETTE, PRICE_TRANSLATIONS
 
-def plot_energy_demand(df: pd.DataFrame, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
-    """Generates a multi-line plot of electricity demand over time and saves it as an image.
+def _plot_time_series(df: pd.DataFrame, title: str, y_label: str, filename_prefix: str, color_palette: dict[str, dict[str, str]], translations: dict[str, str], output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
+    """Internal helper function to generate and save standardized time-series plots.
 
     Args:
-        df (pd.DataFrame): The validated dataset containing 'datetime', 'value', and 'name'.
-        output_dir (str): Directory where the plot image will be saved.
+        df (pd.DataFrame): Validated dataset with 'datetime', 'value', and 'name'.
+        title (str): Chart title.
+        y_label (str): Label for the Y-axis including units.
+        filename_prefix (str): Prefix for the saved PNG file (e.g., 'demand' or 'price').
+        color_palette (dict): Palette containing hex color mappings for each indicator.
+        translations (dict): Dictionary mapping Spanish indicator names to English.
+        output_dir (str): Destination directory for the plot.
 
     Returns:
-        str: The file path where the plot was saved.
+        str: Absolute file path where the plot was saved.
     """
-    print("\n📉 Generating multi-line electricity demand visualization...")
+    if df.empty:
+        print(f"⚠️ [Visualizer] Skipping plot creation for '{filename_prefix}': Dataset is empty.")
+        return ""
 
-    # Ensure the output directory exists
+    # Ensure output directory exists
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         print(f"📁 Created output directory at: '{output_dir}'")
@@ -26,7 +33,6 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str = DEFAULT_OUTPUT_DIR) -
     min_dt = df["datetime"].min()
     max_dt = df["datetime"].max()
 
-    # Format timestamps: include hours if range is within the same day
     if min_dt.date() == max_dt.date():
         start_str = min_dt.strftime("%Y%m%d_%H%M")
         end_str = max_dt.strftime("%Y%m%d_%H%M")
@@ -34,52 +40,77 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str = DEFAULT_OUTPUT_DIR) -
         start_str = min_dt.strftime("%Y%m%d")
         end_str = max_dt.strftime("%Y%m%d")
 
-    filename = f"plot_energy_demand_{start_str}_to_{end_str}.png"
+    filename = f"{filename_prefix}_{start_str}_to_{end_str}.png"
     output_path = os.path.join(output_dir, filename)
 
     # Setup the plot figure size and style
     plt.figure(figsize=(14, 7))
-    plt.style.use('seaborn-v0_8-whitegrid')
+    plt.style.use("seaborn-v0_8-whitegrid")
 
-    # Group by demand name and plot each series independently
+    # Group by indicator name and plot each series independently
     for name_spanish, group_df in df.groupby("name"):
-        # Sort by datetime just in case the data is shuffled
         group_sorted = group_df.sort_values("datetime")
 
-        # Get color configuration from constants or apply the fallback color
-        config = DEMAND_COLOR_PALETTE.get(name_spanish, DEMAND_COLOR_PALETTE["default"])
+        # Fetch color configuration from the specific category palette
+        config = color_palette.get(name_spanish, color_palette.get("default", {"color": "#7f7f7f"}))
 
-        # Dynamic label fetched from the centralized DEMAND_TRANSLATIONS dictionary
-        english_label = DEMAND_TRANSLATIONS.get(name_spanish, name_spanish)
+        # Dynamic label fetched from the specific category translations dictionary
+        english_label = translations.get(name_spanish, name_spanish)
 
         plt.plot(
-            group_sorted["datetime"], 
-            group_sorted["value"], 
-            color=config["color"], 
-            linewidth=2, 
+            group_sorted["datetime"],
+            group_sorted["value"],
+            color=config["color"],
+            linewidth=2,
             label=english_label
         )
 
     # Format titles and labels
-    plt.title("Spanish Peninsula Electricity Demand Comparison", fontsize=14, fontweight="bold", pad=15)
+    plt.title(title, fontsize=14, fontweight="bold", pad=15)
     plt.xlabel("Time (HH:MM / Date)", fontsize=11, labelpad=10)
-    plt.ylabel("Electricity Demand (MW)", fontsize=11, labelpad=10)
+    plt.ylabel(y_label, fontsize=11, labelpad=10)
 
-    # Advanced date formatting for the X-axis to keep it readable
+    # Date formatting for X-axis (Europe/Madrid timezone)
     ax = plt.gca()
     spain_tz = ZoneInfo("Europe/Madrid")
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M\n%Y-%m-%d', tz=spain_tz))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M\n%Y-%m-%d", tz=spain_tz))
 
-    # Adjust spacing automatically so labels don't overlap
     plt.gcf().autofmt_xdate()
 
     # Add legend and optimize layout
     plt.legend(loc="upper right", frameon=True, shadow=True, facecolor="white")
     plt.tight_layout()
 
-    # Save the plot to the output directory
-    plt.savefig(output_path, dpi=300)  # High resolution (300 DPI)
-    plt.close()  # Close the figure to free up memory
+    # Save and close plot
+    plt.savefig(output_path, dpi=300)
+    plt.close()
 
-    print(f"✅ Multi-line visualization successfully saved to: '{output_path}'")
+    print(f"✅ Visualization successfully saved to: '{output_path}'")
     return output_path
+
+
+def plot_energy_demand(df: pd.DataFrame, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
+    """Generates a multi-line plot of electricity demand (MW) over time."""
+    print("\n📉 Generating electricity demand visualization...")
+    return _plot_time_series(
+        df=df,
+        title="Spanish Peninsula Electricity Demand Comparison",
+        y_label="Electricity Demand (MW)",
+        filename_prefix="plot_energy_demand",
+        color_palette=DEMAND_COLOR_PALETTE,
+        translations=DEMAND_TRANSLATIONS,
+        output_dir=output_dir
+    )
+
+def plot_energy_price(df: pd.DataFrame, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
+    """Generates a multi-line plot of electricity prices (€/MWh) over time."""
+    print("\n💶 Generating electricity market price visualization...")
+    return _plot_time_series(
+        df=df,
+        title="Spanish Electricity Market Price Comparison",
+        y_label="Electricity Price (€/MWh)",
+        filename_prefix="plot_electricity_prices",
+        color_palette=PRICE_COLOR_PALETTE,
+        translations=PRICE_TRANSLATIONS,
+        output_dir=output_dir
+    )
