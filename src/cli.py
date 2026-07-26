@@ -96,7 +96,11 @@ def ask_comparison_targets(all_demands: list[str], selected_demands: list[str]) 
     Raises:
         ValueError: If the user fails to select exactly two distinct demand types.
     """
-    print("\n🔍 --- ADVANCED COMPARISON SELECTION ---")
+    # Defensive check: if fewer than 2 demands were selected, cross-analysis isn't possible
+    if len(selected_demands) < 2:
+        return None
+
+    print("\n🔍 --- ADVANCED DEMAND COMPARISON SELECTION ---")
     print("You selected multiple demands. Which two would you like to cross-analyze?")
 
     # Map global index to each active demand option

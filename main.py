@@ -54,10 +54,10 @@ def main() -> None:
         all_available_indicators = available_demands + available_prices
         comparison_targets = None
 
-        if len(selected_indicators) == 2:
-            comparison_targets = (selected_indicators[0], selected_indicators[1])
-        elif len(selected_indicators) > 2:
-            comparison_targets = ask_comparison_targets(all_available_indicators, selected_indicators)
+        if len(selected_demands) == 2:
+            comparison_targets = (selected_demands[0], selected_demands[1])
+        elif len(selected_demands) > 2:
+            comparison_targets = ask_comparison_targets(available_demands, selected_demands)
 
         # Analyze: Execute mathematical metrics, model evaluations, and standard deviation anomalies
         stats = calculate_energy_statistics(df_filtered)
