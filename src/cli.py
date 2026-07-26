@@ -2,58 +2,75 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import pandas as pd
 
-def get_user_demand_selection(df_or_list: pd.DataFrame | list[str]) -> tuple[list[str], list[str]]:
-    """Displays available electricity demand types and prompts the user to select targets.
+def _prompt_category_selection(title: str, available_items: list[str], start_index: int = 1) -> tuple[list[str], int]:
+    """Helper function to print a menu section and capture user selections.
 
     Args:
-        df_or_list (pd.DataFrame | list[str]): Dataset DataFrame or list of demand types.
+        title (str): The section header title (e.g., 'DEMAND SELECTION MENU').
+        available_items (list[str]): List of category/indicator names.
+        start_index (int): Starting index for menu options.
 
     Returns:
-        tuple[list[str], list[str]]: Selected demand categories and all available categories.
+        tuple[list[str], int]: Selected items and the next available menu index.
 
     Raises:
-        ValueError: If the user input is invalid or if no valid selections are made.
+        ValueError: If the user input is invalid or out of range.
     """
-    if isinstance(df_or_list, list):
-        available_demands = df_or_list
-    else:
-        available_demands = list(pd.unique(df_or_list["name"]))
+    print(f"\n📊 --- {title} ---")
 
-    print("\n📊 --- DEMAND SELECTION MENU ---")
-    print("Select which demand types you want to include in the report and chart:")
+    menu_map = {}
+    current_idx = start_index
 
-    # Print options dynamically with an associated index number
-    for i, demand in enumerate(available_demands, start=1):
-        print(f"  [{i}] {demand}")
+    # Print available items with sequential numbering
+    for item in available_items:
+        menu_map[current_idx] = item
+        print(f"  [{current_idx}] {item}")
+        current_idx += 1
 
-    # The last option is mapped to analyze all demands
-    all_options_idx = len(available_demands) + 1
-    print(f"  [{all_options_idx}] ANALYZE ALL DEMANDS")
+    # Add option to analyze all items in this specific section
+    all_option_idx = current_idx
+    print(f"  [{all_option_idx}] ANALYZE ALL {title.split()[0]}S")
+    current_idx += 1
 
     while True:
         try:
-            # Capture user input and clean trailing whitespaces
-            user_input = input(f"\nEnter numbers separated by commas (e.g., 1,3) or press Enter for ALL: ").strip()
+            user_input = input(f"\nEnter numbers separated by commas (e.g., {start_index},{start_index+1}) or press Enter for ALL: ").strip()
 
-            # If the user presses Enter or selects the "All" option, return the full list
-            if user_input == "" or user_input == str(all_options_idx):
-                print("🔄 Analyzing all available demand types...")
-                return available_demands, available_demands
-            
-            # Parse input string into a list of integers (e.g., "1, 3" -> [1, 3])
+            # Default to ALL if user presses Enter or chooses the ALL option
+            if user_input == "" or user_input == str(all_option_idx):
+                print(f"🔄 Selecting all available {title.lower()}...")
+                return available_items, current_idx
+
             selected_indices = [int(x.strip()) for x in user_input.split(",")]
 
-            # Validate that all selected numbers fall within the valid menu range
-            if all(1 <= idx <= len(available_demands) for idx in selected_indices):
-                # Map integers back to the actual string names from the dataset
-                selected_demands = [available_demands[idx - 1] for idx in selected_indices]
-                print(f"✅ Selected categories: {', '.join(selected_demands)}")
-                return selected_demands, available_demands
+            # Validate range
+            if all(idx in menu_map for idx in selected_indices):
+                selected_items = [menu_map[idx] for idx in selected_indices]
+                print(f"✅ Selected: {', '.join(selected_items)}")
+                return selected_items, current_idx
             else:
-                print(f"❌ Invalid selection. Please enter numbers between 1 and {all_options_idx}.")
+                print(f"❌ Invalid choice. Please select valid option numbers from the section.")
 
         except ValueError:
-            print("❌ Input format error. Please use numbers separated by commas only (e.g., 1,2).")
+            print("❌ Input format error. Please use numbers separated by commas only.")
+
+def get_user_indicator_selections(demands_list: list[str], prices_list: list[str]) -> tuple[list[str], list[str]]:
+    """Displays separate selection menus for Demands and Prices.
+
+    Args:
+        demands_list (list[str]): Available demand indicator names.
+        prices_list (list[str]): Available price indicator names.
+
+    Returns:
+        tuple[list[str], list[str]]: A tuple containing (selected_demands, selected_prices).
+    """
+    # 1. Demand Selection Menu (Indices 1 to N)
+    selected_demands, next_index = _prompt_category_selection("DEMAND SELECTION MENU", demands_list, start_index=1)
+
+    # 2. Price Selection Menu (Indices continues from N+1)
+    selected_prices, _ = _prompt_category_selection("PRICE SELECTION MENU", prices_list, start_index=next_index)
+
+    return selected_demands, selected_prices
 
 def ask_comparison_targets(all_demands: list[str], selected_demands: list[str]) -> tuple[str, str]:
     """Prompts the user to select exactly two distinct demand types for cross-analysis.
