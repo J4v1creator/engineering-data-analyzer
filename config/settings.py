@@ -21,7 +21,7 @@ EXPECTED_COLUMNS = {
     "id": "int64",
     "name": "object",
     "geoname": "object",
-    "value": "int64",
+    "value": "float64",
     "datetime": "datetime64[ns, pytz.FixedOffset(120)]"  # REE standard timezone offset (+02:00)
 }
 
