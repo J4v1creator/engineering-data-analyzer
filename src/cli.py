@@ -2,75 +2,85 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import pandas as pd
 
-def _prompt_category_selection(title: str, available_items: list[str], start_index: int = 1) -> tuple[list[str], int]:
-    """Helper function to print a menu section and capture user selections.
-
-    Args:
-        title (str): The section header title (e.g., 'DEMAND SELECTION MENU').
-        available_items (list[str]): List of category/indicator names.
-        start_index (int): Starting index for menu options.
-
-    Returns:
-        tuple[list[str], int]: Selected items and the next available menu index.
-
-    Raises:
-        ValueError: If the user input is invalid or out of range.
-    """
-    print(f"\n📊 --- {title} ---")
-
-    menu_map = {}
-    current_idx = start_index
-
-    # Print available items with sequential numbering
-    for item in available_items:
-        menu_map[current_idx] = item
-        print(f"  [{current_idx}] {item}")
-        current_idx += 1
-
-    # Add option to analyze all items in this specific section
-    all_option_idx = current_idx
-    print(f"  [{all_option_idx}] ANALYZE ALL {title.split()[0]}S")
-    current_idx += 1
-
-    while True:
-        try:
-            user_input = input(f"\nEnter numbers separated by commas (e.g., {start_index},{start_index+1}) or press Enter for ALL: ").strip()
-
-            # Default to ALL if user presses Enter or chooses the ALL option
-            if user_input == "" or user_input == str(all_option_idx):
-                print(f"🔄 Selecting all available {title.lower()}...")
-                return available_items, current_idx
-
-            selected_indices = [int(x.strip()) for x in user_input.split(",")]
-
-            # Validate range
-            if all(idx in menu_map for idx in selected_indices):
-                selected_items = [menu_map[idx] for idx in selected_indices]
-                print(f"✅ Selected: {', '.join(selected_items)}")
-                return selected_items, current_idx
-            else:
-                print(f"❌ Invalid choice. Please select valid option numbers from the section.")
-
-        except ValueError:
-            print("❌ Input format error. Please use numbers separated by commas only.")
-
-def get_user_indicator_selections(demands_list: list[str], prices_list: list[str]) -> tuple[list[str], list[str]]:
-    """Displays separate selection menus for Demands and Prices.
+def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]) -> tuple[list[str], list[str]]:
+    """Displays a single unified menu for both Demand and Price indicators.
 
     Args:
         demands_list (list[str]): Available demand indicator names.
         prices_list (list[str]): Available price indicator names.
 
     Returns:
-        tuple[list[str], list[str]]: A tuple containing (selected_demands, selected_prices).
+        tuple[list[str], list[str]]: Selected demands and selected prices.
+
+    Raises:
+        ValueError: If the user inputs invalid selections or fails to select any indicators.
     """
-    # 1. Demand Selection Menu (Indices 1 to N)
-    selected_demands, next_index = _prompt_category_selection("DEMAND SELECTION MENU", demands_list, start_index=1)
+    print("\n📊 --- INDICATOR SELECTION MENU ---")
+    print("Select indicators to analyze (Demands, Prices, or Both):\n")
 
-    # 2. Price Selection Menu (Indices continues from N+1)
-    selected_prices, _ = _prompt_category_selection("PRICE SELECTION MENU", prices_list, start_index=next_index)
+    menu_map = {}
+    current_idx = 1
 
-    return selected_demands, selected_prices
+    # Print Demands Section
+    print("--- Electricity Demands (MW) ---")
+    for item in demands_list:
+        menu_map[current_idx] = ("demand", item)
+        print(f"  [{current_idx}] {item}")
+        current_idx += 1
+
+    # Print Prices Section
+    print("\n--- Electricity Prices (€/MWh) ---")
+    for item in prices_list:
+        menu_map[current_idx] = ("price", item)
+        print(f"  [{current_idx}] {item}")
+        current_idx += 1
+
+    # Print Quick Actions
+    all_option_idx = current_idx
+    print("\n--- Quick Actions ---")
+    print(f"  [{all_option_idx}] ANALYZE ALL (Demands & Prices)")
+    print("  [0] NONE / EXIT")
+
+    while True:
+        try:
+            user_input = input(f"\nEnter numbers separated by commas (e.g., '1,2' for demands, '5,6' for prices, or '0' for none): ").strip()
+
+            # Option 0: User wants to exit or select nothing
+            if user_input == "0":
+                print("⏩ No indicators selected.")
+                return [], []
+
+            # Default / ALL option
+            if user_input == "" or user_input == str(all_option_idx):
+                print("🔄 Selecting all available demands and prices...")
+                return demands_list, prices_list
+
+            # Process comma-separated list
+            selected_indices = [int(x.strip()) for x in user_input.split(",")]
+
+            if all(idx in menu_map for idx in selected_indices):
+                selected_demands = []
+                selected_prices = []
+
+                for idx in selected_indices:
+                    category, name = menu_map[idx]
+                    if category == "demand":
+                        selected_demands.append(name)
+                    else:
+                        selected_prices.append(name)
+
+                # Feedback logs
+                if selected_demands:
+                    print(f"✅ Selected Demands: {', '.join(selected_demands)}")
+                if selected_prices:
+                    print(f"✅ Selected Prices:  {', '.join(selected_prices)}")
+
+                return selected_demands, selected_prices
+            else:
+                print("❌ Invalid selection. Please enter valid option numbers from the menu.")
+
+        except ValueError:
+            print("❌ Input format error. Please use numbers separated by commas (e.g., 1,5).")
 
 def ask_comparison_targets(all_demands: list[str], selected_demands: list[str]) -> tuple[str, str]:
     """Prompts the user to select exactly two distinct demand types for cross-analysis.
