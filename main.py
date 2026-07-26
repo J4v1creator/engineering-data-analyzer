@@ -2,13 +2,13 @@ import sqlite3
 import sys
 from src.analyzer import calculate_energy_statistics, compare_demand_models, detect_demand_anomalies
 from src.cleaner import clean_expired_cache
-from config.settings import ESIOS_INDICATORS
+from config.settings import DEMAND_TRANSLATIONS, PRICE_TRANSLATIONS
 from src.database import init_db
-from src.cli import ask_comparison_targets, display_anomalies_summary, get_user_datetime_filter, get_user_demand_selection
+from src.cli import ask_comparison_targets, display_anomalies_summary, get_user_datetime_filter, get_user_indicator_selections
 from src.esios_client import get_energy_data
 from src.report import generate_text_report
 from src.validator import validate_dataset
-from src.visualizer import plot_energy_demand
+from src.visualizer import plot_energy_demand, plot_energy_price
 
 def main() -> None:
     """Main orchestrator for the energy demand data analysis pipeline.
@@ -30,22 +30,34 @@ def main() -> None:
         # Input: Prompt user for time filters and period constraints
         start_dt, end_dt = get_user_datetime_filter()
 
-        # Input: Retrieve full metadata parameters and fetch user choice configurations
-        available_demands = list(ESIOS_INDICATORS.keys())
-        selected_types, all_available_demands = get_user_demand_selection(available_demands)
+        # Input: Retrieve available demand and price keys directly from translation settings
+        available_demands = list(DEMAND_TRANSLATIONS.keys())
+        available_prices = list(PRICE_TRANSLATIONS.keys())
+
+        # Input: Prompt user for demand and price selections
+        selected_demands, selected_prices = get_user_indicator_selections(available_demands, available_prices)
+
+        # Consolidate all user selection choices for data retrieval
+        selected_indicators = selected_demands + selected_prices
+
+        if not selected_indicators:
+            print("\n⚠️ No indicators were selected for analysis. Exiting pipeline.")
+            sys.exit(0)
 
         # Process: Retrieve, extract, and unify datasets from the cache layer or remote API
-        df_filtered = get_energy_data(selected_types, start_dt, end_dt)
+        df_filtered = get_energy_data(selected_indicators, start_dt, end_dt)
 
         # Validate: Enforce structural constraints and structural quality checks
         validate_dataset(df_filtered)
 
-        # Process: Establish target baselines and pairwise comparison groups based on selection limits
+        # Process: Establish target baselines and pairwise comparison groups
+        all_available_indicators = available_demands + available_prices
         comparison_targets = None
-        if len(selected_types) == 2:
-            comparison_targets = (selected_types[0], selected_types[1])
-        elif len(selected_types) > 2:
-            comparison_targets = ask_comparison_targets(all_available_demands, selected_types)
+
+        if len(selected_indicators) == 2:
+            comparison_targets = (selected_indicators[0], selected_indicators[1])
+        elif len(selected_indicators) > 2:
+            comparison_targets = ask_comparison_targets(all_available_indicators, selected_indicators)
 
         # Analyze: Execute mathematical metrics, model evaluations, and standard deviation anomalies
         stats = calculate_energy_statistics(df_filtered)
@@ -55,15 +67,28 @@ def main() -> None:
         # Output: Render descriptive warning logs and runtime evaluation summaries to the CLI
         display_anomalies_summary(anomalies)
 
-        # Output: Build graphical plots and serialize analytical charts to disk storage
-        plot_path = plot_energy_demand(df_filtered)
+        # Output: Generate independent visualization charts for Demands and Prices
+        saved_plots = []
+
+        # 1. Plot Electricity Demands (if any were selected)
+        df_demands = df_filtered[df_filtered["name"].isin(selected_demands)]
+        if not df_demands.empty:
+            demand_plot_path = plot_energy_demand(df_demands)
+            saved_plots.append(f"📊 Demand Plot: {demand_plot_path}")
+
+        # 2. Plot Electricity Prices (if any were selected)
+        df_prices = df_filtered[df_filtered["name"].isin(selected_prices)]
+        if not df_prices.empty:
+            price_plot_path = plot_energy_price(df_prices)
+            saved_plots.append(f"💶 Price Plot:  {price_plot_path}")
 
         # Output: Generate text files detailing consolidated metrics and performance history
         report_path = generate_text_report(df_filtered, stats, comp_stats, anomalies, start_dt, end_dt)
 
         print("\n==================================================")
         print("🎉 [SUCCESS] Pipeline executed perfectly!")
-        print(f"📊 Plot saved to:   {plot_path}")
+        for plot_path in saved_plots:
+            print(plot_path)
         print(f"📄 Report saved to: {report_path}")
         print("==================================================")
 
