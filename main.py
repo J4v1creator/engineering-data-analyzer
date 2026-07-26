@@ -4,7 +4,7 @@ from src.analyzer import calculate_energy_statistics, compare_demand_models, det
 from src.cleaner import clean_expired_cache
 from config.settings import DEMAND_TRANSLATIONS, PRICE_TRANSLATIONS
 from src.database import init_db
-from src.cli import ask_comparison_targets, display_anomalies_summary, get_user_datetime_filter, get_user_indicator_selections
+from src.cli import ask_comparison_targets, display_anomalies_summary, get_user_datetime_filter, get_user_indicator_selection
 from src.esios_client import get_energy_data
 from src.report import generate_text_report
 from src.validator import validate_dataset
@@ -35,7 +35,7 @@ def main() -> None:
         available_prices = list(PRICE_TRANSLATIONS.keys())
 
         # Input: Prompt user for demand and price selections
-        selected_demands, selected_prices = get_user_indicator_selections(available_demands, available_prices)
+        selected_demands, selected_prices = get_user_indicator_selection(available_demands, available_prices)
 
         # Consolidate all user selection choices for data retrieval
         selected_indicators = selected_demands + selected_prices
