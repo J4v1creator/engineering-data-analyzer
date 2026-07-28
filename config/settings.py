@@ -19,12 +19,12 @@ CACHE_EXPIRATION_DAYS = 7
 # Recognized geographic region identifiers for ESIOS API datasets
 GEOGRAPHY_MAPPINGS = {
     1: "Portugal",
-    2: "France",
-    3: "Spain",
-    8741: "Peninsula",
-    8826: "Germany",
-    8827: "Belgium",
-    8828: "Netherlands",
+    2: "Francia",
+    3: "España",
+    8741: "Península",
+    8826: "Alemania",
+    8827: "Bélgica",
+    8828: "Países Bajos",
 }
 
 # Expected data schema for strict type validation
@@ -78,12 +78,12 @@ PRICE_COLOR_PALETTE = {
 
 # Geographic region color palette for multi-region plots (e.g., Spot Market Prices)
 GEO_COLOR_PALETTE = {
-    "Spain": "#e377c2",
+    "España": "#e377c2",
     "Portugal": "#17becf",
-    "France": "#bcbd22",
-    "Germany": "#7f7f7f",
-    "Belgium": "#8c564b",
-    "Netherlands": "#9467bd",
-    "Peninsula": "#1f77b4",
+    "Francia": "#bcbd22",
+    "Alemania": "#7f7f7f",
+    "Bélgica": "#8c564b",
+    "Países Bajos": "#9467bd",
+    "Península": "#1f77b4",
     "default": "#333333",
 }
