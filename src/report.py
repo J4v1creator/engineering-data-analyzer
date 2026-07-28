@@ -1,24 +1,25 @@
 import os
 from datetime import datetime
 import pandas as pd
-from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_TRANSLATIONS
+from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_TRANSLATIONS, PRICE_TRANSLATIONS
 
-def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict | None = None, anomalies: dict | None = None,
+def generate_text_report(df: pd.DataFrame, demand_stats: dict, price_stats: dict, comp_stats: dict | None = None, anomalies: dict | None = None,
     start_dt: datetime | None = None,  end_dt: datetime | None = None, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
-    """Generates a structured, professional text report summarizing the full
-    statistical insights for each specific type of electricity demand.
+    """Generates a structured, professional text report summarizing statistical insights
+    for both energy demand (MW) and energy prices (€/MWh).
 
     Args:
         df (pd.DataFrame): The validated dataset.
-        stats (dict): The dictionary of statistics calculated by the analyzer.
-        comp_stats (dict | None): The advanced comparison statistics. Defaults to None.
-        anomalies (dict | None): The dictionary of detected anomalies. Defaults to None.
-        start_dt (datetime | None): The start datetime of the analyzed range.
-        end_dt (datetime | None): The end datetime of the analyzed range.
+        demand_stats (dict): Dictionary of demand statistics calculated by the analyzer.
+        price_stats (dict): Dictionary of price statistics calculated by the analyzer.
+        comp_stats (dict | None): Advanced comparison statistics for demands.
+        anomalies (dict | None): Dictionary of detected anomalies.
+        start_dt (datetime | None): Start datetime of analyzed range.
+        end_dt (datetime | None): End datetime of analyzed range.
         output_dir (str): Directory where the report will be saved.
 
     Returns:
-        str: The file path of the generated report.
+        str: File path of the generated report.
 
     Raises:
         RuntimeError: If the system fails to write the report file.
@@ -59,11 +60,11 @@ def generate_text_report(df: pd.DataFrame, stats: dict, comp_stats: dict | None 
 
     # Report Header and Metadata
     report_content = f"""==================================================
-ENERGY CONSUMPTION ANALYSIS REPORT (AUTOMATED)
+ENERGY MARKET & DEMAND ANALYSIS REPORT (AUTOMATED)
 ==================================================
 Date of Analysis:  {current_time}
 Analysis Period (Data): {analysis_period}
-Data Source:       Red Eléctrica de España (REE)
+Data Source:       Red Eléctrica de España (REE / e·sios)
 
 --------------------------------------------------
 1. DATASET METADATA
@@ -77,24 +78,43 @@ Data Source:       Red Eléctrica de España (REE)
 2. STATISTICAL SUMMARY (DEMAND IN MW)
 --------------------------------------------------"""
 
-    # Iterate over the statistics and add them directly to the content
-    for demand_name in pd.unique(df["name"]):
-        if demand_name in stats:
-            metrics = stats[demand_name]
-
-            # Translate labels dynamically from the constants module
-            english_name = DEMAND_TRANSLATIONS.get(demand_name, demand_name)
+    if demand_stats:
+        for series_label, metrics in demand_stats.items():
+            base_name = series_label.split(" (")[0]
+            english_name = DEMAND_TRANSLATIONS.get(base_name, series_label)
 
             report_content += f"""
 --- {english_name.upper()} ---
-- Maximum Demand:  {metrics['max']} MW (At: {metrics['peak_time']})
-- Minimum Demand:  {metrics['min']} MW
+- Maximum Demand:  {metrics['max']:.2f} MW (At: {metrics['peak_time']})
+- Minimum Demand:  {metrics['min']:.2f} MW
 - Mean (Average):  {metrics['mean']:.2f} MW
 - Median:          {metrics['median']:.2f} MW
 - Std. Deviation:  {metrics['std_dev']:.2f} MW
 """
+    else:
+        report_content += "\n- No demand indicators were selected for this run.\n"
 
-    # Advanced Model Comparison Section (Injected dynamically if data is available)
+    report_content += """
+--------------------------------------------------
+3. STATISTICAL SUMMARY: ENERGY PRICES (€/MWh)
+--------------------------------------------------"""
+
+    if price_stats:
+        for series_label, metrics in price_stats.items():
+            base_name = series_label.split(" (")[0]
+            english_name = PRICE_TRANSLATIONS.get(base_name, series_label)
+
+            report_content += f"""
+--- {english_name.upper()} ---
+- Maximum Price:    {metrics['max']:.2f} €/MWh (At: {metrics['max_time']})
+- Minimum Price:    {metrics['min']:.2f} €/MWh (At: {metrics['min_time']})
+- Daily Spread:     {metrics['spread']:.2f} €/MWh (Max - Min Swing)
+- Zero/Low Hours:   {metrics['zero_low_price_hours']} hour(s) (<= 5.0 €/MWh)
+"""
+    else:
+        report_content += "\n- No price indicators were selected for this run.\n"
+
+    # Advanced Model Comparison Section
     if comp_stats:
         # Translate the names of the two models compared
         model_a_en = DEMAND_TRANSLATIONS.get(comp_stats["model_a"], comp_stats["model_a"])
@@ -102,15 +122,15 @@ Data Source:       Red Eléctrica de España (REE)
 
         report_content += f"""
 --------------------------------------------------
-3. ADVANCED MODEL COMPARISON
+4. ADVANCED MODEL COMPARISON (DEMAND ONLY)
 --------------------------------------------------
 Comparison Baseline (Model A): {model_a_en}
 Compared Target     (Model B): {model_b_en}
 
 - Mean Difference (A - B):      {comp_stats['mean_difference']:.2f} MW
-- Maximum Absolute Deviation:   {abs(comp_stats['max_difference_value'])} MW
+- Maximum Absolute Deviation:   {abs(comp_stats['max_difference_value']):.2f} MW
     ↳ Occurred At:                {comp_stats['max_difference_time']}
-    ↳ Directional Error (A - B):   {comp_stats['max_difference_value']} MW
+    ↳ Directional Error (A - B):   {comp_stats['max_difference_value']:.2f} MW
 - Mean Absolute Pct. Error:     {comp_stats['mape']:.2f}%
 - Pearson Correlation (r):      {comp_stats['correlation']:.4f}
 """
@@ -118,15 +138,18 @@ Compared Target     (Model B): {model_b_en}
     # Statistical Anomaly Detection Section
     report_content += f"""
 --------------------------------------------------
-4. STATISTICAL ANOMALY DETECTION (Z-SCORE > 2.0)
+5. STATISTICAL ANOMALY DETECTION (Z-SCORE > 2.0)
 --------------------------------------------------"""
 
     if anomalies:
-        for demand_name, issues in anomalies.items():
-            english_name = DEMAND_TRANSLATIONS.get(demand_name, demand_name)
+        for series_label, issues in anomalies.items():
+            base_name = series_label.split(" (")[0]
+            english_name = DEMAND_TRANSLATIONS.get(base_name, PRICE_TRANSLATIONS.get(base_name, series_label))
+
             report_content += f"\n• {english_name.upper()}:"
             for issue in issues:
-                report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {issue['value']} MW (Deviation: {issue['deviation']:.2f} MW)"
+                unit = "€/MWh" if "precio" in base_name.lower() or "spot" in base_name.lower() else "MW"
+                report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {issue['value']:.2f} {unit} (Deviation: {issue['deviation']:.2f} {unit})"
             report_content += "\n"
     else:
         report_content += "\n- No statistical anomalies detected. All data points are within expected variance limits.\n"
