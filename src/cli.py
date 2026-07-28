@@ -22,14 +22,14 @@ def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]
     current_idx = 1
 
     # Print Demands Section
-    print("--- Electricity Demands (MW) ---")
+    print("--- Energy Demands (MW) ---")
     for item in demands_list:
         menu_map[current_idx] = ("demand", item)
         print(f"  [{current_idx}] {item}")
         current_idx += 1
 
     # Print Prices Section
-    print("\n--- Electricity Prices (€/MWh) ---")
+    print("\n--- Energy Prices (€/MWh) ---")
     for item in prices_list:
         menu_map[current_idx] = ("price", item)
         print(f"  [{current_idx}] {item}")
@@ -82,7 +82,7 @@ def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]
         except ValueError:
             print("❌ Input format error. Please use numbers separated by commas (e.g., 1,5).")
 
-def ask_comparison_targets(all_demands: list[str], selected_demands: list[str]) -> tuple[str, str]:
+def ask_comparison_targets(all_demands: list[str], selected_demands: list[str]) -> tuple[str, str] | None:
     """Prompts the user to select exactly two distinct demand types for cross-analysis.
 
     Args:
@@ -91,7 +91,7 @@ def ask_comparison_targets(all_demands: list[str], selected_demands: list[str]) 
         demands previously selected by the user.
 
     Returns:
-        tuple[str, str]: Names of the two distinct demand types selected for comparison.
+        tuple[str, str] | None: Names of the two distinct demand types selected for comparison or None if insufficient.
 
     Raises:
         ValueError: If the user fails to select exactly two distinct demand types.
@@ -136,13 +136,14 @@ def display_anomalies_summary(anomalies: dict[str, list]) -> None:
     """Prints a clean, formatted summary of the detected anomalies in the console.
 
     Args:
-        anomalies (dict[str, list]): Mapping of demand names to lists of detected issues.
+        anomalies (dict[str, list]): Mapping of indicator/region names to lists of detected issues.
     """
     if anomalies:
-        for demand_name, issues in anomalies.items():
-            print(f"⚠️ {demand_name}: Found {len(issues)} statistical anomalies.")
+        print("\n⚠️ --- ANOMALY DETECTION SUMMARY ---")
+        for indicator_label, issues in anomalies.items():
+            print(f"⚠️ {indicator_label}: Found {len(issues)} statistical anomalies.")
     else:
-        print("✅ No anomalies detected in the selected demand types.")
+        print("✅ No anomalies detected in the selected series.")
 
 def get_user_datetime_filter() -> tuple[datetime, datetime]:
     """Prompts the user to enter a specific start and end datetime range.
