@@ -2,7 +2,10 @@ import pandas as pd
 from config.settings import EXPECTED_COLUMNS
 
 def validate_dataset(df: pd.DataFrame) -> bool:
-    """Validates the dataset structure, column types, missing values, and duplicates.
+    """Validates dataset structure, data types, missing values, and business key uniqueness.
+
+    Ensures data integrity for multi-region indicators by checking uniqueness across
+    the composite key (id, datetime, geo_id).
 
     Args:
         df (pd.DataFrame): The DataFrame to validate.
@@ -33,8 +36,23 @@ def validate_dataset(df: pd.DataFrame) -> bool:
                 raise ValueError(f"❌ Validation failed: Column '{col}' type is {df[col].dtype}, expected text (object/str)")
             continue
 
+        # Flexible check for integer types (int64, int32, etc.)
+        if expected_type == "int64":
+            if not pd.api.types.is_integer_dtype(df[col]):
+                raise ValueError(f"❌ Validation failed: Column '{col}' type is {df[col].dtype}, expected integer")
+            continue
+
+        # Flexible check for numeric floats
+        if expected_type == "float64":
+            if not pd.api.types.is_float_dtype(df[col]):
+                raise ValueError(f"❌ Validation failed: Column '{col}' type is {df[col].dtype}, expected float")
+            continue
+
         # Flexible check for timezone-aware datetime columns
-        if col == "datetime" and isinstance(df[col].dtype, pd.DatetimeTZDtype):
+        # Flexible check for timezone-aware or naive datetime columns
+        if col == "datetime":
+            if not (isinstance(df[col].dtype, pd.DatetimeTZDtype) or pd.api.types.is_datetime64_any_dtype(df[col])):
+                raise ValueError(f"❌ Validation failed: Column '{col}' type is {df[col].dtype}, expected datetime")
             continue
 
         if not pd.api.types.is_dtype_equal(df[col].dtype, expected_type):
@@ -48,11 +66,12 @@ def validate_dataset(df: pd.DataFrame) -> bool:
         raise ValueError(f"❌ Validation failed: Found {missing_values} missing values in the dataset.")
     print("✅ No missing values.")
 
-    # Check for duplicate rows
-    duplicate_count = df.duplicated().sum()
+    # Check for duplicate entries based on composite domain key (indicator id, datetime, geo_id)
+    composite_key = ["id", "datetime", "geo_id"]
+    duplicate_count = df.duplicated(subset=composite_key).sum()
     if duplicate_count > 0:
-        raise ValueError(f"❌ Validation failed: Found {duplicate_count} duplicate rows.")
-    print("✅ No duplicate rows.")
+        raise ValueError(f"❌ Validation failed: Found {duplicate_count} duplicate records for key combination {composite_key}.")
+    print("✅ No duplicate records for composite key (id, datetime, geo_id).")
 
     print("\n🎉 [SUCCESS] Dataset passed all quality checks!")
     return True
