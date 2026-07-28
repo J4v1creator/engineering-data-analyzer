@@ -61,14 +61,14 @@ def _clean_expired_database_records(db_path: str, expiration_days: int) -> int:
     deleted_rows = 0
     try:
         with get_connection(db_path) as conn:
-            initial_changes = conn.total_changes
             cursor = conn.cursor()
 
-            # Ensure datetime comparison parses ISO strings properly
+            # Ensure execution against unified esios_records table
             query = """
-                DELETE FROM demand_records
+                DELETE FROM esios_records
                 WHERE datetime < DATETIME('now', ? || ' days');
             """
+            initial_changes = conn.total_changes
             cursor.execute(query, (f"-{expiration_days}",))
             conn.commit()
             deleted_rows = conn.total_changes - initial_changes
