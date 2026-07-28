@@ -21,41 +21,44 @@ def get_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
 
 def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
     """Initializes the database schema by creating required tables and indexes.
+
     Args:
         db_path (str): Path to the SQLite database file.
     """
     with get_connection(db_path) as conn:
         cursor = conn.cursor()
 
-        # Create main demand records table
+        # Create main unified ESIOS records table (supports both demand and prices)
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS demand_records (
+            CREATE TABLE IF NOT EXISTS esios_records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 indicator_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
-                geoname TEXT NOT NULL,
-                value INTEGER NOT NULL,
+                geo_id INTEGER NOT NULL,
+                geo_name TEXT NOT NULL,
+                value REAL NOT NULL,
                 datetime TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(indicator_id, datetime)
+                UNIQUE(indicator_id, datetime, geo_id)
             )
         """)
 
-        # Composite index for optimized filtered queries by demand name and time range
+        # Composite index for optimized query performance filtering by indicator name, geo_id, and time range
         cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_demand_name_datetime 
-            ON demand_records (name, datetime);
+            CREATE INDEX IF NOT EXISTS idx_records_name_geo_datetime 
+            ON esios_records (name, geo_id, datetime);
         """)
 
         conn.commit()
     print("✅ [DATABASE] Database schema initialized successfully.")
 
-def save_demand_dataframe(df: pd.DataFrame, db_path: str = DEFAULT_DB_PATH) -> int:
+
+def save_dataframe(df: pd.DataFrame, db_path: str = DEFAULT_DB_PATH) -> int:
     """Saves a pandas DataFrame into the SQLite database.
-    Uses INSERT OR IGNORE to automatically bypass duplicate timestamps.
+    Uses INSERT OR IGNORE to automatically bypass duplicate entries for (indicator_id, datetime, geo_id).
 
     Args:
-        df (pd.DataFrame): DataFrame containing demand records with columns.
+        df (pd.DataFrame): DataFrame containing ESIOS records with required columns.
         db_path (str): Path to the SQLite database file.
 
     Returns:
@@ -68,16 +71,16 @@ def save_demand_dataframe(df: pd.DataFrame, db_path: str = DEFAULT_DB_PATH) -> i
 
     # Prepare DataFrame records for bulk insertion
     df_to_save = df.copy()
-    
+
     # Ensure datetime column is converted to string ISO format for SQLite storage
     if pd.api.types.is_datetime64_any_dtype(df_to_save["datetime"]):
         df_to_save["datetime"] = df_to_save["datetime"].dt.strftime("%Y-%m-%dT%H:%M:%S%z")
 
-    records = df_to_save[["id", "name", "geoname", "value", "datetime"]].values.tolist()
+    records = df_to_save[["id", "name", "geo_id", "geo_name", "value", "datetime"]].values.tolist()
 
     insert_query = """
-        INSERT OR IGNORE INTO demand_records (indicator_id, name, geoname, value, datetime)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT OR IGNORE INTO esios_records (indicator_id, name, geo_id, geo_name, value, datetime)
+        VALUES (?, ?, ?, ?, ?, ?)
     """
 
     with get_connection(db_path) as conn:
@@ -90,19 +93,27 @@ def save_demand_dataframe(df: pd.DataFrame, db_path: str = DEFAULT_DB_PATH) -> i
     print(f"💾 [DATABASE] Inserted {inserted_count} new records into SQLite database.")
     return inserted_count
 
-def load_demand_data(demands: list[str], start_iso: str, end_iso: str, db_path: str = DEFAULT_DB_PATH) -> pd.DataFrame:
-    """Loads demand records from SQLite matching selected demand names and time range.
+
+def load_data_by_names(
+    names: list[str],
+    start_iso: str | datetime,
+    end_iso: str | datetime,
+    geo_ids: list[int] | None = None,
+    db_path: str = DEFAULT_DB_PATH,
+) -> pd.DataFrame:
+    """Loads ESIOS records from SQLite matching selected names, optional geography IDs, and time range.
 
     Args:
-        demands (List[str]): List of demand names to filter.
-        start_iso (str): Start datetime in ISO format.
-        end_iso (str): End datetime in ISO format.
+        names (list[str]): List of indicator names to filter.
+        start_iso (str | datetime): Start datetime in ISO format or datetime object.
+        end_iso (str | datetime): End datetime in ISO format or datetime object.
+        geo_ids (list[int] | None): Optional list of geo_id values to filter by region.
         db_path (str): Path to the SQLite database file.
 
     Returns:
         pd.DataFrame: Retrieved data formatted identically to API payload dataframes.
     """
-    if not demands:
+    if not names:
         return pd.DataFrame()
 
     init_db(db_path)
@@ -113,18 +124,24 @@ def load_demand_data(demands: list[str], start_iso: str, end_iso: str, db_path: 
     if isinstance(end_iso, datetime):
         end_iso = end_iso.isoformat()
 
-    # Dynamic parameter placeholders for SQL query
-    placeholders = ", ".join(["?"] * len(demands))
+    # Build dynamic SQL query
+    name_placeholders = ", ".join(["?"] * len(names))
     query = f"""
-        SELECT indicator_id AS id, name, geoname, value, datetime
-        FROM demand_records
-        WHERE name IN ({placeholders})
+        SELECT indicator_id AS id, name, geo_id, geo_name, value, datetime
+        FROM esios_records
+        WHERE name IN ({name_placeholders})
             AND datetime >= ?
             AND datetime <= ?
-        ORDER BY datetime ASC
     """
+    params = list(names) + [start_iso, end_iso]
 
-    params = list(demands) + [start_iso, end_iso]
+    # Optional filtering by geographic IDs
+    if geo_ids:
+        geo_placeholders = ", ".join(["?"] * len(geo_ids))
+        query += f" AND geo_id IN ({geo_placeholders})"
+        params.extend(geo_ids)
+
+    query += " ORDER BY datetime ASC, geo_id ASC"
 
     with get_connection(db_path) as conn:
         df = pd.read_sql_query(query, conn, params=params)
