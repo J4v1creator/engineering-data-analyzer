@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import pandas as pd
 import requests
 from config.settings import ESIOS_INDICATORS
-from src.database import load_demand_data, save_demand_dataframe
+from src.database import load_data_by_names, save_dataframe
 
 # Load environment variables from .env file
 load_dotenv()
@@ -15,33 +15,39 @@ def _is_cache_complete(df_cached: pd.DataFrame, selected_indicators: list[str], 
 
     Args:
         df_cached (pd.DataFrame): DataFrame containing cached records.
-        selected_indicators (list[str]): List of demand names to check.
+        selected_indicators (list[str]): List of indicator names to check.
         start_dt (datetime): Start datetime of the requested range.
         end_dt (datetime): End datetime of the requested range.
 
     Returns:
-        bool: True if the cache is complete, False otherwise.
+        bool: True if all selected indicators are present and fully cover the time range, False otherwise.
     """
     if df_cached.empty:
         return False
 
     cached_indicators = set(df_cached["name"].unique())
-    all_present = set(selected_indicators).issubset(cached_indicators)
+    if not set(selected_indicators).issubset(cached_indicators):
+        return False
 
-    # Ensure min and max timestamps in SQLite fully cover the requested period
-    min_cached = df_cached["datetime"].min()
-    max_cached = df_cached["datetime"].max()
+    # Check temporal completeness for EACH individual indicator
+    for indicator in selected_indicators:
+        df_ind = df_cached[df_cached["name"] == indicator]
+        if df_ind.empty:
+            return False
 
-    starts_covered = min_cached <= start_dt
-    ends_covered = max_cached >= end_dt
+        min_cached = df_ind["datetime"].min()
+        max_cached = df_ind["datetime"].max()
 
-    return all_present and starts_covered and ends_covered
+        if min_cached > start_dt or max_cached < end_dt:
+            return False
+
+    return True
 
 def _fetch_indicator_from_api(indicator_name: str, start_iso: str, end_iso: str, api_token: str) -> pd.DataFrame:
     """Issues an HTTP request to e·sios API for a single indicator and parses response records.
 
     Args:
-        indicator_name (str): Name of the demand indicator to fetch.
+        indicator_name (str): Name of the indicator to fetch.
         start_iso (str): Start datetime in ISO format.
         end_iso (str): End datetime in ISO format.
         api_token (str): API token for authentication.
@@ -50,7 +56,7 @@ def _fetch_indicator_from_api(indicator_name: str, start_iso: str, end_iso: str,
         pd.DataFrame: DataFrame containing the fetched indicator data.
 
     Raises:
-        RuntimeError: If the API request fails or returns an error.
+        RuntimeError: If the API request fails or returns an HTTP error status.
     """
     indicator_id = ESIOS_INDICATORS.get(indicator_name)
     if not indicator_id:
@@ -74,7 +80,7 @@ def _fetch_indicator_from_api(indicator_name: str, start_iso: str, end_iso: str,
         response.raise_for_status()
         data = response.json()
 
-        # Support nested dictionary structures
+        # Support nested dictionary structures returned by REData API
         if isinstance(data, list) and len(data) > 0:
             indicator_data = data[0].get("indicator", {})
         else:
@@ -88,11 +94,15 @@ def _fetch_indicator_from_api(indicator_name: str, start_iso: str, end_iso: str,
             if raw_val is None:
                 continue
 
+            geo_id_val = item.get("geo_id")
+            geo_name_val = item.get("geo_name")
+
             # Preserves decimals for prices (float) and numeric precision for demand
             records.append({
                 "id": int(indicator_id),
                 "name": str(indicator_name),
-                "geoname": str(item.get("geo_name", "Peninsula")),
+                "geo_id": int(geo_id_val) if geo_id_val is not None else 0,
+                "geo_name": str(geo_name_val) if geo_name_val else "Unknown",
                 "value": float(raw_val),
                 "datetime": item.get("datetime"),
             })
@@ -116,12 +126,12 @@ def get_energy_data(selected_indicators: list[str], start_dt: datetime, end_dt: 
     """Orchestrates local database retrieval and API fetching fallback for energy metrics.
 
     Args:
-        selected_indicators (list[str]): List of demand names to retrieve.
+        selected_indicators (list[str]): List of indicator names to retrieve.
         start_dt (datetime): Start datetime of the requested range.
         end_dt (datetime): End datetime of the requested range.
 
     Returns:
-        pd.DataFrame: DataFrame containing the retrieved energy data.
+        pd.DataFrame: DataFrame containing the retrieved energy and price data.
 
     Raises:
         ValueError: If no data could be retrieved for any of the selected metrics.
@@ -141,7 +151,7 @@ def get_energy_data(selected_indicators: list[str], start_dt: datetime, end_dt: 
     end_iso = end_dt.isoformat()
 
     # Query local SQLite database
-    df_cached = load_demand_data(selected_indicators, start_iso, end_iso)
+    df_cached = load_data_by_names(selected_indicators, start_iso, end_iso)
 
     if _is_cache_complete(df_cached, selected_indicators, start_dt, end_dt):
         print("📦 Data successfully loaded from local SQLite database cache.")
@@ -158,10 +168,10 @@ def get_energy_data(selected_indicators: list[str], start_dt: datetime, end_dt: 
     # Persist freshly fetched remote data into SQLite cache
     if fetched_frames:
         combined_fetched_df = pd.concat(fetched_frames, ignore_index=True)
-        save_demand_dataframe(combined_fetched_df)
+        save_dataframe(combined_fetched_df)
 
     # Consolidated load from DB to guarantee schema normalization
-    final_df = load_demand_data(selected_indicators, start_iso, end_iso)
+    final_df = load_data_by_names(selected_indicators, start_iso, end_iso)
 
     if final_df.empty:
         raise ValueError("No data could be retrieved for any of the selected metrics.")
