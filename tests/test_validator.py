@@ -8,7 +8,8 @@ def test_validate_dataset_success():
     valid_data = pd.DataFrame({
         "id": [1293],
         "name": ["Demanda real"],
-        "geoname": ["España"],
+        "geo_id": [8741],
+        "geo_name": ["España"],
         "value": [25000],
         "datetime": pd.to_datetime(["2026-07-24 00:00:00+02:00"]),
     })
@@ -29,7 +30,7 @@ def test_validate_dataset_missing_columns():
     incomplete_data = pd.DataFrame({
         "id": [1293],
         "name": ["Demanda real"],
-        # Missing 'geoname', 'value', 'datetime'
+        # Missing 'geo_id', 'geo_name', 'value', 'datetime'
     })
 
     with pytest.raises(ValueError, match="Missing required column"):
@@ -41,7 +42,8 @@ def test_validate_dataset_null_values():
     data_with_nulls = pd.DataFrame({
         "id": [1293],
         "name": ["Demanda real"],
-        "geoname": [None],
+        "geo_id": [8741],
+        "geo_name": [None],
         "value": [25000],
         "datetime": pd.to_datetime(["2026-07-24 00:00:00+02:00"]),
     })
