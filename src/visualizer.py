@@ -3,13 +3,13 @@ from zoneinfo import ZoneInfo
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
-from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_COLOR_PALETTE, DEMAND_TRANSLATIONS, PRICE_COLOR_PALETTE, PRICE_TRANSLATIONS
+from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_COLOR_PALETTE, DEMAND_TRANSLATIONS, GEO_COLOR_PALETTE, PRICE_COLOR_PALETTE, PRICE_TRANSLATIONS
 
 def _plot_time_series(df: pd.DataFrame, title: str, y_label: str, filename_prefix: str, color_palette: dict[str, dict[str, str]], translations: dict[str, str], output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
     """Internal helper function to generate and save standardized time-series plots.
 
     Args:
-        df (pd.DataFrame): Validated dataset with 'datetime', 'value', and 'name'.
+        df (pd.DataFrame): Validated dataset with 'datetime', 'value', 'name', and 'geo_name'.
         title (str): Chart title.
         y_label (str): Label for the Y-axis including units.
         filename_prefix (str): Prefix for the saved PNG file (e.g., 'demand' or 'price').
@@ -47,22 +47,39 @@ def _plot_time_series(df: pd.DataFrame, title: str, y_label: str, filename_prefi
     plt.figure(figsize=(14, 7))
     plt.style.use("seaborn-v0_8-whitegrid")
 
+    # Determine if multiple geographic regions exist in this dataset
+    unique_geos = df["geo_name"].unique()
+    has_multiple_geos = len(unique_geos) > 1
+
     # Group by indicator name and plot each series independently
-    for name_spanish, group_df in df.groupby("name"):
+    for (name_spanish, geo_name), group_df in df.groupby(["name", "geo_name"]):
         group_sorted = group_df.sort_values("datetime")
 
-        # Fetch color configuration from the specific category palette
-        config = color_palette.get(name_spanish, color_palette.get("default", {"color": "#7f7f7f"}))
+        # English translation for indicator
+        english_name = translations.get(name_spanish, name_spanish)
 
-        # Dynamic label fetched from the specific category translations dictionary
-        english_label = translations.get(name_spanish, name_spanish)
+        # Dynamic legend label
+        if has_multiple_geos:
+            legend_label = f"{english_name} ({geo_name})"
+            # Pick color from geographic palette if available, fallback to default palette
+            color_hex = GEO_COLOR_PALETTE.get(
+                geo_name,
+                color_palette.get(name_spanish, {}).get("color", "#7f7f7f"),
+            )
+        else:
+            legend_label = english_name
+            config = color_palette.get(
+                name_spanish,
+                color_palette.get("default", {"color": "#7f7f7f"}),
+            )
+            color_hex = config.get("color", "#7f7f7f")
 
         plt.plot(
             group_sorted["datetime"],
             group_sorted["value"],
-            color=config["color"],
+            color=color_hex,
             linewidth=2,
-            label=english_label
+            label=legend_label,
         )
 
     # Format titles and labels
@@ -88,14 +105,13 @@ def _plot_time_series(df: pd.DataFrame, title: str, y_label: str, filename_prefi
     print(f"✅ Visualization successfully saved to: '{output_path}'")
     return output_path
 
-
 def plot_energy_demand(df: pd.DataFrame, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
-    """Generates a multi-line plot of electricity demand (MW) over time."""
-    print("\n📉 Generating electricity demand visualization...")
+    """Generates a multi-line plot of energy demand (MW) over time."""
+    print("\n📉 Generating energy demand visualization...")
     return _plot_time_series(
         df=df,
-        title="Spanish Peninsula Electricity Demand Comparison",
-        y_label="Electricity Demand (MW)",
+        title="Spanish Peninsula Energy Demand Comparison",
+        y_label="Energy Demand (MW)",
         filename_prefix="plot_energy_demand",
         color_palette=DEMAND_COLOR_PALETTE,
         translations=DEMAND_TRANSLATIONS,
@@ -103,13 +119,13 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str = DEFAULT_OUTPUT_DIR) -
     )
 
 def plot_energy_price(df: pd.DataFrame, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
-    """Generates a multi-line plot of electricity prices (€/MWh) over time."""
-    print("\n💶 Generating electricity market price visualization...")
+    """Generates a multi-line plot of energy prices (€/MWh) over time."""
+    print("\n💶 Generating energy market price visualization...")
     return _plot_time_series(
         df=df,
-        title="Spanish Electricity Market Price Comparison",
-        y_label="Electricity Price (€/MWh)",
-        filename_prefix="plot_electricity_prices",
+        title="Spanish & Regional Energy Market Price Comparison",
+        y_label="Energy Price (€/MWh)",
+        filename_prefix="plot_energy_prices",
         color_palette=PRICE_COLOR_PALETTE,
         translations=PRICE_TRANSLATIONS,
         output_dir=output_dir
