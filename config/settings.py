@@ -16,17 +16,6 @@ DEFAULT_ANOMALY_THRESHOLD = 2.0
 # Cache expiration limit in days
 CACHE_EXPIRATION_DAYS = 7
 
-# Recognized geographic region identifiers for ESIOS API datasets
-GEOGRAPHY_MAPPINGS = {
-    1: "Portugal",
-    2: "Francia",
-    3: "España",
-    8741: "Península",
-    8826: "Alemania",
-    8827: "Bélgica",
-    8828: "Países Bajos",
-}
-
 # Expected data schema for strict type validation
 EXPECTED_COLUMNS = {
     "id": "int64",
@@ -34,7 +23,7 @@ EXPECTED_COLUMNS = {
     "geo_id": "int64",
     "geo_name": "object",
     "value": "float64",
-    "datetime": "datetime64[ns]",
+    "datetime": "datetime64[ns, Europe/Madrid]",
 }
 
 # E·sios API Indicators Mapping
@@ -45,6 +34,21 @@ ESIOS_INDICATORS = {
     "Demanda Programada Total Peninsular": 1941,
     "Término de facturación de energía activa del PVPC 2.0TD": 1001,
     "Precio mercado SPOT Diario": 600,
+}
+
+# Recognized geographic region identifiers for ESIOS API datasets
+GEOGRAPHY_MAPPINGS = {
+    1: "Portugal",
+    2: "Francia",
+    3: "España",
+    8741: "Península",
+    8742: "Canarias",
+    8743: "Baleares",
+    8744: "Ceuta",
+    8745: "Melilla",
+    8826: "Alemania",
+    8827: "Bélgica",
+    8828: "Países Bajos",
 }
 
 # Translation mapping for Red Eléctrica de España (REE) demand names
@@ -58,7 +62,22 @@ DEMAND_TRANSLATIONS = {
 # Translation mapping for Red Eléctrica de España (REE) price names
 PRICE_TRANSLATIONS = {
     "Término de facturación de energía activa del PVPC 2.0TD": "PVPC Retail Energy Price",
-    "Precio mercado SPOT Diario": "Daily Spot Market Price",
+    "Precio mercado SPOT Diario": "Spot Market Price",
+}
+
+# Translation mapping for geographic region names
+GEOGRAPHY_TRANSLATIONS = {
+    "Portugal": "Portugal",
+    "Francia": "France",
+    "España": "Spain",
+    "Península": "Peninsula",
+    "Canarias": "Canary Islands",
+    "Baleares": "Balearic Islands",
+    "Ceuta": "Ceuta",
+    "Melilla": "Melilla",
+    "Alemania": "Germany",
+    "Bélgica": "Belgium",
+    "Países Bajos": "Netherlands",
 }
 
 # UI/UX Plotting configurations
@@ -70,6 +89,7 @@ DEMAND_COLOR_PALETTE = {
     "default": {"color": "#7f7f7f"},
 }
 
+# Price color palette for multi-price plots (e.g., PVPC vs Spot Market)
 PRICE_COLOR_PALETTE = {
     "Término de facturación de energía activa del PVPC 2.0TD": {"color": "#9467bd"},
     "Precio mercado SPOT Diario": {"color": "#8c564b"},
@@ -78,12 +98,16 @@ PRICE_COLOR_PALETTE = {
 
 # Geographic region color palette for multi-region plots (e.g., Spot Market Prices)
 GEO_COLOR_PALETTE = {
-    "España": "#e377c2",
     "Portugal": "#17becf",
     "Francia": "#bcbd22",
+    "España": "#e377c2",
+    "Península": "#1f77b4",
+    "Canarias": "#ff7f0e",
+    "Baleares": "#2ca02c",
+    "Ceuta": "#d62728",
+    "Melilla": "#9467bd",
     "Alemania": "#7f7f7f",
     "Bélgica": "#8c564b",
-    "Países Bajos": "#9467bd",
-    "Península": "#1f77b4",
+    "Países Bajos": "#ab67b7",
     "default": "#333333",
 }
