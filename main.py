@@ -64,7 +64,7 @@ def main() -> None:
             comparison_targets = ask_comparison_targets(available_demands, selected_demands)
 
         # Analyze: Execute specialized mathematical metrics per dataset type
-        demand_stats = calculate_demand_statistics(df_demands)
+        demand_stats = calculate_demand_statistics(df_demands, selected_demands)
         price_stats = calculate_price_statistics(df_prices)
         comp_stats = compare_demand_models(df_filtered, comparison_targets)
         anomalies = detect_demand_anomalies(df_filtered)

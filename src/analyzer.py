@@ -1,11 +1,12 @@
 import pandas as pd
 from config.settings import DEFAULT_ANOMALY_THRESHOLD
 
-def calculate_demand_statistics(df_demand: pd.DataFrame,) -> dict[str, dict[str, float | str]]:
+def calculate_demand_statistics(df_demand: pd.DataFrame, selected_demands: list[str] | None = None) -> dict[str, dict[str, float | str]]:
     """Calculates traditional power demand statistics (MW).
 
     Args:
         df_demand (pd.DataFrame): Filtered DataFrame containing demand indicators.
+        selected_demands (list[str] | None): List of specific demand series to analyze.
 
     Returns:
         dict[str, dict[str, float | str]]: Statistical summary per demand series.
@@ -16,27 +17,35 @@ def calculate_demand_statistics(df_demand: pd.DataFrame,) -> dict[str, dict[str,
     print("\n🔍 Calculating power demand statistics...")
     stats = {}
 
-    for (name_type, geo_name), group_df in df_demand.groupby(["name", "geo_name"], sort=False):
-        values = group_df["value"]
-        max_idx = values.idxmax()
-        max_time = group_df.loc[max_idx, "datetime"]
+    ordered_names = ([name for name in selected_demands if name in df_demand["name"].values]
+        if selected_demands
+        else df_demand["name"].unique()
+    )
 
-        series_label = (
-            f"{name_type} ({geo_name})"
-            if len(df_demand["geo_name"].unique()) > 1
-            else name_type
-        )
+    for name_type in ordered_names:
+        df_indicator = df_demand[df_demand["name"] == name_type]
 
-        stats[series_label] = {
-            "mean": float(values.mean()),
-            "median": float(values.median()),
-            "max": float(values.max()),
-            "min": float(values.min()),
-            "std_dev": float(values.std()) if len(values) > 1 else 0.0,
-            "peak_time": max_time.strftime("%Y-%m-%d %H:%M"),
-            "geo_name": geo_name,
-        }
-        print(f"📊 Demand stats calculated for: {series_label}")
+        for geo_name, group_df in df_indicator.groupby("geo_name", sort=False):
+            values = group_df["value"]
+            max_idx = values.idxmax()
+            max_time = group_df.loc[max_idx, "datetime"]
+
+            series_label = (
+                f"{name_type} ({geo_name})"
+                if len(df_demand["geo_name"].unique()) > 1
+                else name_type
+            )
+
+            stats[series_label] = {
+                "mean": float(values.mean()),
+                "median": float(values.median()),
+                "max": float(values.max()),
+                "min": float(values.min()),
+                "std_dev": float(values.std()) if len(values) > 1 else 0.0,
+                "peak_time": max_time.strftime("%Y-%m-%d %H:%M"),
+                "geo_name": geo_name,
+            }
+            print(f"📊 Demand stats calculated for: {series_label}")
 
     return stats
 
