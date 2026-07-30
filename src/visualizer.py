@@ -3,7 +3,8 @@ from zoneinfo import ZoneInfo
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
-from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_COLOR_PALETTE, DEMAND_TRANSLATIONS, GEO_COLOR_PALETTE, PRICE_COLOR_PALETTE, PRICE_TRANSLATIONS
+from config.settings import (DEFAULT_OUTPUT_DIR, DEMAND_COLOR_PALETTE, DEMAND_TRANSLATIONS, GEO_COLOR_PALETTE, GEOGRAPHY_TRANSLATIONS,
+    PRICE_COLOR_PALETTE, PRICE_TRANSLATIONS)
 
 def _plot_time_series(df: pd.DataFrame, title: str, y_label: str, filename_prefix: str, color_palette: dict[str, dict[str, str]], translations: dict[str, str], output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
     """Internal helper function to generate and save standardized time-series plots.
@@ -57,10 +58,11 @@ def _plot_time_series(df: pd.DataFrame, title: str, y_label: str, filename_prefi
 
         # English translation for indicator
         english_name = translations.get(name_spanish, name_spanish)
+        english_geo = GEOGRAPHY_TRANSLATIONS.get(geo_name, geo_name)
 
         # Dynamic legend label
         if has_multiple_geos:
-            legend_label = f"{english_name} ({geo_name})"
+            legend_label = f"{english_name} ({english_geo})"
             # Pick color from geographic palette if available, fallback to default palette
             color_hex = GEO_COLOR_PALETTE.get(
                 geo_name,
