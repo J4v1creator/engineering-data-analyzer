@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 import pandas as pd
-from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_TRANSLATIONS, PRICE_TRANSLATIONS
+from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_TRANSLATIONS, GEOGRAPHY_TRANSLATIONS, PRICE_TRANSLATIONS
 
 def generate_text_report(df: pd.DataFrame, demand_stats: dict, price_stats: dict, comp_stats: dict | None = None, anomalies: dict | None = None,
     start_dt: datetime | None = None,  end_dt: datetime | None = None, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
@@ -104,8 +104,15 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
             base_name = series_label.split(" (")[0]
             english_name = PRICE_TRANSLATIONS.get(base_name, series_label)
 
+            raw_geo = metrics.get("geo_name", "")
+            if not raw_geo and "(" in series_label and ")" in series_label:
+                raw_geo = series_label.split("(")[1].split(")")[0]
+
+            geo_en = GEOGRAPHY_TRANSLATIONS.get(raw_geo, raw_geo)
+            title = f"{english_name.upper()} ({geo_en.upper()})" if geo_en else english_name.upper()
+
             report_content += f"""
---- {english_name.upper()} ---
+--- {title} ---
 - Maximum Price:    {metrics['max']:.2f} €/MWh (At: {metrics['max_time']})
 - Minimum Price:    {metrics['min']:.2f} €/MWh (At: {metrics['min_time']})
 - Daily Spread:     {metrics['spread']:.2f} €/MWh (Max - Min Swing)
@@ -146,7 +153,10 @@ Compared Target     (Model B): {model_b_en}
             base_name = series_label.split(" (")[0]
             english_name = DEMAND_TRANSLATIONS.get(base_name, PRICE_TRANSLATIONS.get(base_name, series_label))
 
-            report_content += f"\n• {english_name.upper()}:"
+            geo_en = GEOGRAPHY_TRANSLATIONS.get(raw_geo, raw_geo)
+            title = f"{english_name.upper()} ({geo_en.upper()})" if geo_en else english_name.upper()
+
+            report_content += f"\n• {title}:"
             for issue in issues:
                 unit = "€/MWh" if "precio" in base_name.lower() or "spot" in base_name.lower() else "MW"
                 report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {issue['value']:.2f} {unit} (Deviation: {issue['deviation']:.2f} {unit})"
