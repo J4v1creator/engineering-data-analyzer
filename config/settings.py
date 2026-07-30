@@ -82,11 +82,11 @@ GEOGRAPHY_TRANSLATIONS = {
 
 # UI/UX Plotting configurations
 DEMAND_COLOR_PALETTE = {
-    "Demanda real": {"color": "#1f77b4"},
-    "Demanda prevista": {"color": "#ff7f0e"},
-    "Demanda programada": {"color": "#2ca02c"},
-    "Demanda Programada Total Peninsular": {"color": "#d62728"},
-    "default": {"color": "#7f7f7f"},
+    "Demanda real": "#1f77b4",
+    "Demanda prevista": "#ff7f0e",
+    "Demanda programada": "#2ca02c",
+    "Demanda Programada Total Peninsular": "#d62728",
+    "default": "#7f7f7f",
 }
 
 # Geographic region color palette for multi-region plots (e.g., Spot Market Prices)
