@@ -89,25 +89,23 @@ DEMAND_COLOR_PALETTE = {
     "default": {"color": "#7f7f7f"},
 }
 
-# Price color palette for multi-price plots (e.g., PVPC vs Spot Market)
-PRICE_COLOR_PALETTE = {
-    "Término de facturación de energía activa del PVPC 2.0TD": {"color": "#9467bd"},
-    "Precio mercado SPOT Diario": {"color": "#8c564b"},
-    "default": {"color": "#7f7f7f"},
-}
-
 # Geographic region color palette for multi-region plots (e.g., Spot Market Prices)
 GEO_COLOR_PALETTE = {
-    "Portugal": "#17becf",
-    "Francia": "#bcbd22",
-    "España": "#e377c2",
-    "Península": "#1f77b4",
-    "Canarias": "#ff7f0e",
-    "Baleares": "#2ca02c",
-    "Ceuta": "#d62728",
-    "Melilla": "#9467bd",
-    "Alemania": "#7f7f7f",
-    "Bélgica": "#8c564b",
-    "Países Bajos": "#ab67b7",
-    "default": "#333333",
+    # --- Spot Market Price ---
+    "Portugal": "#1f77b4",
+    "Francia": "#ff7f0e",
+    "España": "#2ca02c",
+    "Alemania": "#d62728",
+    "Bélgica": "#9467bd",
+    "Países Bajos": "#17becf",
+
+    # --- PVPC Retail Energy Price ---
+    "Península": "#0e4d64",
+    "Canarias": "#e377c2",
+    "Baleares": "#bcbd22",
+    "Ceuta": "#8c564b",
+    "Melilla": "#ffbb78",
+
+    # --- Fallback ---
+    "default": "#7f7f7f",
 }
