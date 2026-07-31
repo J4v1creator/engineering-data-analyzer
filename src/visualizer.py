@@ -52,29 +52,34 @@ def _plot_time_series(df: pd.DataFrame, title: str, y_label: str, filename_prefi
     has_multiple_geos = len(unique_geos) > 1
 
     # Group by indicator name and plot each series independently
-    for (name_spanish, geo_name), group_df in df.groupby(["name", "geo_name"]):
-        group_sorted = group_df.sort_values("datetime")
+    for name_spanish, english_name in translations.items():
+        if name_spanish not in df["name"].values:
+            continue
 
-        # English translation for indicator
-        english_name = translations.get(name_spanish, name_spanish)
-        english_geo = GEOGRAPHY_TRANSLATIONS.get(geo_name, geo_name)
+        indicator_df = df[df["name"] == name_spanish]
+        available_geos = indicator_df["geo_name"].unique()
 
-        # Dynamic legend label
-        if has_multiple_geos:
-            legend_label = f"{english_name} ({english_geo})"
-            # Pick color from geographic palette if available, fallback to default palette
-            color_hex = GEO_COLOR_PALETTE.get(geo_name, color_palette.get(name_spanish, "#7f7f7f"))
-        else:
-            legend_label = english_name
-            color_hex = color_palette.get(name_spanish, color_palette.get("default", "#7f7f7f"))
+        for geo_name in available_geos:
+            group_df = indicator_df[indicator_df["geo_name"] == geo_name]
+            group_sorted = group_df.sort_values("datetime")
 
-        plt.plot(
-            group_sorted["datetime"],
-            group_sorted["value"],
-            color=color_hex,
-            linewidth=2,
-            label=legend_label,
-        )
+            english_geo = GEOGRAPHY_TRANSLATIONS.get(geo_name, geo_name)
+
+            # Dynamic legend label
+            if has_multiple_geos:
+                legend_label = f"{english_name} ({english_geo})"
+                color_hex = GEO_COLOR_PALETTE.get(geo_name, color_palette.get(name_spanish, "#7f7f7f"))
+            else:
+                legend_label = english_name
+                color_hex = color_palette.get(name_spanish, color_palette.get("default", "#7f7f7f"))
+
+            plt.plot(
+                group_sorted["datetime"],
+                group_sorted["value"],
+                color=color_hex,
+                linewidth=2,
+                label=legend_label,
+            )
 
     # Format titles and labels
     plt.title(title, fontsize=14, fontweight="bold", pad=15)
