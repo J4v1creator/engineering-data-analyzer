@@ -3,6 +3,28 @@ from datetime import datetime
 import pandas as pd
 from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_TRANSLATIONS, GEOGRAPHY_TRANSLATIONS, PRICE_TRANSLATIONS
 
+def _parse_series_title(series_label: str, fallback_geo: str = "") -> tuple[str, str]:
+    """Helper function to extract base name, region and build formatted title + base name.
+
+    Args:
+        series_label (str): The original series label from the dataset.
+        fallback_geo (str): The fallback geography name if not found in the series label.
+
+    Returns:
+        tuple[str, str]: (formatted_title, base_name)
+    """
+    base_name = series_label.split(" (")[0]
+    raw_geo = fallback_geo
+
+    if not raw_geo and "(" in series_label and ")" in series_label:
+        raw_geo = series_label.split("(")[1].split(")")[0]
+
+    english_name = DEMAND_TRANSLATIONS.get(base_name, PRICE_TRANSLATIONS.get(base_name, series_label))
+    geo_en = GEOGRAPHY_TRANSLATIONS.get(raw_geo, raw_geo)
+
+    title = f"{english_name.upper()} ({geo_en.upper()})" if geo_en else english_name.upper()
+    return title, base_name
+
 def generate_text_report(df: pd.DataFrame, demand_stats: dict, price_stats: dict, comp_stats: dict | None = None, anomalies: dict | None = None,
     start_dt: datetime | None = None,  end_dt: datetime | None = None, output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
     """Generates a structured, professional text report summarizing statistical insights
@@ -101,15 +123,7 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
 
     if price_stats:
         for series_label, metrics in price_stats.items():
-            base_name = series_label.split(" (")[0]
-            english_name = PRICE_TRANSLATIONS.get(base_name, series_label)
-
-            raw_geo = metrics.get("geo_name", "")
-            if not raw_geo and "(" in series_label and ")" in series_label:
-                raw_geo = series_label.split("(")[1].split(")")[0]
-
-            geo_en = GEOGRAPHY_TRANSLATIONS.get(raw_geo, raw_geo)
-            title = f"{english_name.upper()} ({geo_en.upper()})" if geo_en else english_name.upper()
+            title, _ = _parse_series_title(series_label, fallback_geo=metrics.get("geo_name", ""))
 
             report_content += f"""
 --- {title} ---
@@ -129,7 +143,7 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
 
         report_content += f"""
 --------------------------------------------------
-4. ADVANCED MODEL COMPARISON (DEMAND ONLY)
+4. ADVANCED MODEL COMPARISON (DEMANDS ONLY)
 --------------------------------------------------
 Comparison Baseline (Model A): {model_a_en}
 Compared Target     (Model B): {model_b_en}
@@ -145,24 +159,25 @@ Compared Target     (Model B): {model_b_en}
     # Statistical Anomaly Detection Section
     report_content += f"""
 --------------------------------------------------
-5. STATISTICAL ANOMALY DETECTION (Z-SCORE > 2.0)
+5. STATISTICAL ANOMALY DETECTION (Z-SCORE > 2.0) (DEMANDS ONLY)
 --------------------------------------------------"""
-
+    has_printed_anomalies = False
     if anomalies:
-        for series_label, issues in anomalies.items():
-            base_name = series_label.split(" (")[0]
-            english_name = DEMAND_TRANSLATIONS.get(base_name, PRICE_TRANSLATIONS.get(base_name, series_label))
+        # Iteramos en el orden exacto definido en DEMAND_TRANSLATIONS (orden del dataset)
+        for base_demand_name in DEMAND_TRANSLATIONS.keys():
+            # Buscamos si esta demanda tiene anomalías registradas (con o sin región en la clave)
+            for series_label, issues in anomalies.items():
+                if series_label.startswith(base_demand_name) and issues:
+                    has_printed_anomalies = True
+                    title, _ = _parse_series_title(series_label)
 
-            geo_en = GEOGRAPHY_TRANSLATIONS.get(raw_geo, raw_geo)
-            title = f"{english_name.upper()} ({geo_en.upper()})" if geo_en else english_name.upper()
+                    report_content += f"\n• {title}:"
+                    for issue in issues:
+                        report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {issue['value']:.2f} MW (Deviation: {issue['deviation']:.2f} MW)"
+                    report_content += "\n"
 
-            report_content += f"\n• {title}:"
-            for issue in issues:
-                unit = "€/MWh" if "precio" in base_name.lower() or "spot" in base_name.lower() else "MW"
-                report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {issue['value']:.2f} {unit} (Deviation: {issue['deviation']:.2f} {unit})"
-            report_content += "\n"
-    else:
-        report_content += "\n- No statistical anomalies detected. All data points are within expected variance limits.\n"
+    if not has_printed_anomalies:
+        report_content += "\n- No statistical anomalies detected in energy demand data.\n"
 
     # Report Footer
     report_content += """
