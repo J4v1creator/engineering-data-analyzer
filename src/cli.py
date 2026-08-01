@@ -1,6 +1,5 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import pandas as pd
 
 def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]) -> tuple[list[str], list[str]]:
     """Displays a single unified menu for both Demand and Price indicators.
