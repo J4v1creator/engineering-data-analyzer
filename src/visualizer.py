@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_COLOR_PALETTE, DEMAND_TRANSLATIONS, GEO_COLOR_PALETTE, GEOGRAPHY_TRANSLATIONS, PRICE_TRANSLATIONS
 
-def _plot_time_series(df: pd.DataFrame, title: str, y_label: str, filename_prefix: str, color_palette: dict[str, dict[str, str]], translations: dict[str, str], output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
+def _plot_time_series(df: pd.DataFrame, title: str, y_label: str, filename_prefix: str, color_palette: dict[str, str], translations: dict[str, str], output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
     """Internal helper function to generate and save standardized time-series plots.
 
     Args:
