@@ -25,33 +25,36 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
     Args:
         db_path (str): Path to the SQLite database file.
     """
-    with get_connection(db_path) as conn:
-        cursor = conn.cursor()
+    try:
+        with get_connection(db_path) as conn:
+            cursor = conn.cursor()
 
-        # Create main unified ESIOS records table (supports both demand and prices)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS esios_records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                indicator_id INTEGER NOT NULL,
-                name TEXT NOT NULL,
-                geo_id INTEGER NOT NULL,
-                geo_name TEXT NOT NULL,
-                value REAL NOT NULL,
-                datetime TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(indicator_id, datetime, geo_id)
-            )
-        """)
+            # Create main unified ESIOS records table (supports both demand and prices)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS esios_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    indicator_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    geo_id INTEGER NOT NULL,
+                    geo_name TEXT NOT NULL,
+                    value REAL NOT NULL,
+                    datetime TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(indicator_id, datetime, geo_id)
+                )
+            """)
 
-        # Composite index for optimized query performance filtering by indicator name, geo_id, and time range
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_records_name_geo_datetime 
-            ON esios_records (name, geo_id, datetime);
-        """)
+            # Composite index for optimized query performance filtering by indicator name, geo_id, and time range
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_records_name_geo_datetime 
+                ON esios_records (name, geo_id, datetime);
+            """)
 
-        conn.commit()
-    print("✅ [DATABASE] Database schema initialized successfully.")
+            conn.commit()
+        print("✅ [DATABASE] Database schema initialized successfully.")
 
+    except sqlite3.Error as e:
+        print(f"\n❌ Database Error: An issue occurred with SQLite storage.\n{e}")
 
 def save_dataframe(df: pd.DataFrame, db_path: str = DEFAULT_DB_PATH) -> int:
     """Saves a pandas DataFrame into the SQLite database.

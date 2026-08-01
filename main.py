@@ -1,4 +1,3 @@
-import sqlite3
 import sys
 from config.settings import DEMAND_TRANSLATIONS, PRICE_TRANSLATIONS
 from src.analyzer import calculate_demand_statistics, calculate_price_statistics, compare_demand_models, detect_demand_anomalies
@@ -95,11 +94,8 @@ def main() -> None:
         print(f"  ↳ 📄 Report saved to: {report_path}")
         print("==================================================")
 
-    except sqlite3.Error as e:
-        print(f"\n❌ Database Error: An issue occurred with SQLite storage.\n{e}")
-        sys.exit(1)
     except RuntimeError as e:
-        print(f"\n❌ API Connection Error: Could not retrieve data.\n{e}")
+        print(f"\n❌ System / API / DB Error:\n{e}")
         sys.exit(1)
     except FileNotFoundError as e:
         print(f"\n❌ Critical Error: Local file or directory missing.\n{e}")
