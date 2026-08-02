@@ -1,29 +1,35 @@
 from datetime import datetime
-import os
+from pathlib import Path
+
 import sqlite3
 import pandas as pd
+
 from config.settings import DEFAULT_DB_PATH
 
-def get_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
+
+def get_connection(db_path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
     """Creates and returns a connection to the SQLite database.
     Ensures the parent directory exists before connecting.
 
     Args:
-        db_path (str): Path to the SQLite database file.
+        db_path (str | Path): Path to the SQLite database file.
 
     Returns:
         sqlite3.Connection: A connection object to the SQLite database.
     """
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    path_obj = Path(db_path)
+    path_obj.parent.mkdir(parents=True, exist_ok=True)
+
+    conn = sqlite3.connect(path_obj)
     conn.row_factory = sqlite3.Row
     return conn
 
-def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
+
+def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> None:
     """Initializes the database schema by creating required tables and indexes.
 
     Args:
-        db_path (str): Path to the SQLite database file.
+        db_path (str | Path): Path to the SQLite database file.
     """
     try:
         with get_connection(db_path) as conn:
@@ -44,7 +50,7 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
                 )
             """)
 
-            # Composite index for optimized query performance filtering by indicator name, geo_id, and time range
+            # Composite index for optimized query performance
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_records_name_geo_datetime 
                 ON esios_records (name, geo_id, datetime);
@@ -56,13 +62,14 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
     except sqlite3.Error as e:
         print(f"\n❌ Database Error: An issue occurred with SQLite storage.\n{e}")
 
-def save_dataframe(df: pd.DataFrame, db_path: str = DEFAULT_DB_PATH) -> int:
+
+def save_dataframe(df: pd.DataFrame, db_path: str | Path = DEFAULT_DB_PATH) -> int:
     """Saves a pandas DataFrame into the SQLite database.
     Uses INSERT OR IGNORE to automatically bypass duplicate entries for (indicator_id, datetime, geo_id).
 
     Args:
         df (pd.DataFrame): DataFrame containing ESIOS records with required columns.
-        db_path (str): Path to the SQLite database file.
+        db_path (str | Path): Path to the SQLite database file.
 
     Returns:
         int: Total number of new rows inserted into the database.
@@ -102,7 +109,7 @@ def load_data_by_names(
     start_iso: str | datetime,
     end_iso: str | datetime,
     geo_ids: list[int] | None = None,
-    db_path: str = DEFAULT_DB_PATH,
+    db_path: str | Path = DEFAULT_DB_PATH,
 ) -> pd.DataFrame:
     """Loads ESIOS records from SQLite matching selected names, optional geography IDs, and time range.
 
@@ -111,7 +118,7 @@ def load_data_by_names(
         start_iso (str | datetime): Start datetime in ISO format or datetime object.
         end_iso (str | datetime): End datetime in ISO format or datetime object.
         geo_ids (list[int] | None): Optional list of geo_id values to filter by region.
-        db_path (str): Path to the SQLite database file.
+        db_path (str | Path): Path to the SQLite database file.
 
     Returns:
         pd.DataFrame: Retrieved data formatted identically to API payload dataframes.
