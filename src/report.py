@@ -156,22 +156,30 @@ Compared Target     (Model B): {model_b_en}
 5. STATISTICAL ANOMALY DETECTION (Z-SCORE > 2.0)
 --------------------------------------------------"""
     has_printed_anomalies = False
-    if anomalies:
+    if anomalies and demand_stats:
         has_multiple_geos = len(df["geo_name"].unique()) > 1
-        for series_label, issues in anomalies.items():
-            if issues:
-                has_printed_anomalies = True
-                base_name = series_label.split(" (")[0]
-                geo_name = issues[0].get("geo_name", "")
-                title = translate_indicator(base_name, geo_name=geo_name, show_geo=has_multiple_geos).upper()
 
-                report_content += f"\n• {title}:"
-                for issue in issues:
-                    report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {issue['value']:.2f} (Deviation: {issue['deviation']:.2f})"
-                report_content += "\n"
+        for demand_key in demand_stats.keys():
+            base_demand_name = demand_key.split(" (")[0]
+
+            for series_label, issues in anomalies.items():
+                if series_label.startswith(base_demand_name) and issues:
+                    has_printed_anomalies = True
+
+                    base_name = series_label.split(" (")[0]
+                    raw_geo = ""
+                    if "(" in series_label and ")" in series_label:
+                        raw_geo = series_label.split("(")[1].split(")")[0]
+
+                    title = translate_indicator(base_name, geo_name=raw_geo, show_geo=has_multiple_geos).upper()
+
+                    report_content += f"\n• {title}:"
+                    for issue in issues:
+                        report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {issue['value']:.2f} MW (Deviation: {issue['deviation']:.2f} MW)"
+                    report_content += "\n"
 
     if not has_printed_anomalies:
-        report_content += "\n- No statistical anomalies detected in the selected data series.\n"
+        report_content += "\n- No statistical anomalies detected in energy demand data.\n"
 
     # Report Footer
     report_content += """

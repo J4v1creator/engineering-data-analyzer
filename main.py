@@ -69,7 +69,7 @@ def main() -> None:
         anomalies = detect_demand_anomalies(df_filtered)
 
         # Output: Render descriptive warning logs and runtime evaluation summaries to the CLI
-        display_anomalies_summary(anomalies)
+        display_anomalies_summary(anomalies, demand_stats)
 
         # Output: Generate independent visualization charts for Demands and Prices
         saved_plots = []

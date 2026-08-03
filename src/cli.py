@@ -140,23 +140,30 @@ def ask_comparison_targets(all_demands: list[str], selected_demands: list[str]) 
             print("❌ Input format error. Please use numbers separated by commas only (e.g., 1,2).")
 
 
-def display_anomalies_summary(anomalies: dict[str, list]) -> None:
+def display_anomalies_summary(anomalies: dict[str, list], demand_stats: dict) -> None:
     """Prints a clean, formatted summary of the detected anomalies in the console.
 
     Args:
         anomalies (dict[str, list]): Mapping of indicator/region names to lists of detected issues.
+        demand_stats (dict): Statistics for the selected demand indicators.
     """
-    if anomalies:
+    if anomalies and demand_stats:
         print("\n⚠️ --- ANOMALY DETECTION SUMMARY ---")
-        for indicator_label, issues in anomalies.items():
-            # If the key contains parenthesis like "Demanda real (Península)", format dynamically
-            if "(" in indicator_label and ")" in indicator_label:
-                raw_name, raw_geo = indicator_label.split(" (")
-                raw_geo = raw_geo.rstrip(")")
-                display_label = translate_indicator(raw_name, geo_name=raw_geo, show_geo=True)
-            else:
-                display_label = translate_indicator(indicator_label)
-            print(f"⚠️ {display_label}: Found {len(issues)} statistical anomalies.")
+        has_printed = False
+
+        for demand_key, metrics in demand_stats.items():
+            base_demand_name = demand_key.split(" (")[0]
+
+            for series_label, issues in anomalies.items():
+                if series_label.startswith(base_demand_name) and issues:
+                    has_printed = True
+                    geo_name = metrics.get("geo_name", "")
+
+                    display_label = translate_indicator(base_demand_name, geo_name=geo_name, show_geo=True)
+                    print(f"⚠️ {display_label}: Found {len(issues)} statistical anomalies.")
+
+        if not has_printed:
+            print("✅ No anomalies detected in the selected series.")
     else:
         print("✅ No anomalies detected in the selected series.")
 
