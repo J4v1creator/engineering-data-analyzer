@@ -3,30 +3,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_TRANSLATIONS, GEOGRAPHY_TRANSLATIONS, PRICE_TRANSLATIONS
+from config.settings import DEFAULT_OUTPUT_DIR
+from src.utils import translate_indicator
 
-
-def _parse_series_title(series_label: str, fallback_geo: str = "") -> tuple[str, str]:
-    """Helper function to extract base name, region and build formatted title + base name.
-
-    Args:
-        series_label (str): The original series label from the dataset.
-        fallback_geo (str): The fallback geography name if not found in the series label.
-
-    Returns:
-        tuple[str, str]: (formatted_title, base_name)
-    """
-    base_name = series_label.split(" (")[0]
-    raw_geo = fallback_geo
-
-    if not raw_geo and "(" in series_label and ")" in series_label:
-        raw_geo = series_label.split("(")[1].split(")")[0]
-
-    english_name = DEMAND_TRANSLATIONS.get(base_name, PRICE_TRANSLATIONS.get(base_name, series_label))
-    geo_en = GEOGRAPHY_TRANSLATIONS.get(raw_geo, raw_geo)
-
-    title = f"{english_name.upper()} ({geo_en.upper()})" if geo_en else english_name.upper()
-    return title, base_name
 
 def generate_text_report(
     df: pd.DataFrame,
@@ -112,12 +91,14 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
 --------------------------------------------------"""
 
     if demand_stats:
+        has_multiple_geos = len(df["geo_name"].unique()) > 1
         for series_label, metrics in demand_stats.items():
             base_name = series_label.split(" (")[0]
-            english_name = DEMAND_TRANSLATIONS.get(base_name, series_label)
+            geo_name = metrics.get("geo_name", "")
+            title = translate_indicator(base_name, geo_name=geo_name, show_geo=has_multiple_geos).upper()
 
             report_content += f"""
---- {english_name.upper()} ---
+--- {title} ---
 - Maximum Demand:  {metrics['max']:.2f} MW (At: {metrics['peak_time']})
 - Minimum Demand:  {metrics['min']:.2f} MW
 - Mean (Average):  {metrics['mean']:.2f} MW
@@ -133,8 +114,11 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
 --------------------------------------------------"""
 
     if price_stats:
+        has_multiple_geos = len(df["geo_name"].unique()) > 1
         for series_label, metrics in price_stats.items():
-            title, _ = _parse_series_title(series_label, fallback_geo=metrics.get("geo_name", ""))
+            base_name = series_label.split(" (")[0]
+            geo_name = metrics.get("geo_name", "")
+            title = translate_indicator(base_name, geo_name=geo_name, show_geo=has_multiple_geos).upper()
 
             report_content += f"""
 --- {title} ---
@@ -148,9 +132,8 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
 
     # Advanced Model Comparison Section
     if comp_stats:
-        # Translate the names of the two models compared
-        model_a_en = DEMAND_TRANSLATIONS.get(comp_stats["model_a"], comp_stats["model_a"])
-        model_b_en = DEMAND_TRANSLATIONS.get(comp_stats["model_b"], comp_stats["model_b"])
+        model_a_en = translate_indicator(comp_stats["model_a"])
+        model_b_en = translate_indicator(comp_stats["model_b"])
 
         report_content += f"""
 --------------------------------------------------
@@ -170,23 +153,25 @@ Compared Target     (Model B): {model_b_en}
     # Statistical Anomaly Detection Section
     report_content += f"""
 --------------------------------------------------
-5. STATISTICAL ANOMALY DETECTION (Z-SCORE > 2.0) (DEMANDS ONLY)
+5. STATISTICAL ANOMALY DETECTION (Z-SCORE > 2.0)
 --------------------------------------------------"""
     has_printed_anomalies = False
     if anomalies:
-        for base_demand_name in DEMAND_TRANSLATIONS.keys():
-            for series_label, issues in anomalies.items():
-                if series_label.startswith(base_demand_name) and issues:
-                    has_printed_anomalies = True
-                    title, _ = _parse_series_title(series_label)
+        has_multiple_geos = len(df["geo_name"].unique()) > 1
+        for series_label, issues in anomalies.items():
+            if issues:
+                has_printed_anomalies = True
+                base_name = series_label.split(" (")[0]
+                geo_name = issues[0].get("geo_name", "")
+                title = translate_indicator(base_name, geo_name=geo_name, show_geo=has_multiple_geos).upper()
 
-                    report_content += f"\n• {title}:"
-                    for issue in issues:
-                        report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {issue['value']:.2f} MW (Deviation: {issue['deviation']:.2f} MW)"
-                    report_content += "\n"
+                report_content += f"\n• {title}:"
+                for issue in issues:
+                    report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {issue['value']:.2f} (Deviation: {issue['deviation']:.2f})"
+                report_content += "\n"
 
     if not has_printed_anomalies:
-        report_content += "\n- No statistical anomalies detected in energy demand data.\n"
+        report_content += "\n- No statistical anomalies detected in the selected data series.\n"
 
     # Report Footer
     report_content += """

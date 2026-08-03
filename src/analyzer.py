@@ -1,5 +1,8 @@
 import pandas as pd
+
 from config.settings import DEFAULT_ANOMALY_THRESHOLD
+from src.utils import translate_indicator
+
 
 def calculate_demand_statistics(df_demand: pd.DataFrame, selected_demands: list[str] | None = None) -> dict[str, dict[str, float | str]]:
     """Calculates traditional power demand statistics (MW).
@@ -22,6 +25,8 @@ def calculate_demand_statistics(df_demand: pd.DataFrame, selected_demands: list[
         else df_demand["name"].unique()
     )
 
+    has_multiple_geos = len(df_demand["geo_name"].unique()) > 1
+
     for name_type in ordered_names:
         df_indicator = df_demand[df_demand["name"] == name_type]
 
@@ -30,11 +35,9 @@ def calculate_demand_statistics(df_demand: pd.DataFrame, selected_demands: list[
             max_idx = values.idxmax()
             max_time = group_df.loc[max_idx, "datetime"]
 
-            series_label = (
-                f"{name_type} ({geo_name})"
-                if len(df_demand["geo_name"].unique()) > 1
-                else name_type
-            )
+            series_label = (f"{name_type} ({geo_name})" if has_multiple_geos else name_type)
+
+            display_label = translate_indicator(name_type, geo_name, has_multiple_geos)
 
             stats[series_label] = {
                 "mean": float(values.mean()),
@@ -45,9 +48,10 @@ def calculate_demand_statistics(df_demand: pd.DataFrame, selected_demands: list[
                 "peak_time": max_time.strftime("%Y-%m-%d %H:%M"),
                 "geo_name": geo_name,
             }
-            print(f"📊 Demand stats calculated for: {series_label}")
+            print(f"📊 Demand stats calculated for: {display_label}")
 
     return stats
+
 
 def calculate_price_statistics(df_price: pd.DataFrame,) -> dict[str, dict[str, float | int | str]]:
     """Calculates market price statistics (€/MWh), including spreads and zero-price hours.
@@ -63,6 +67,7 @@ def calculate_price_statistics(df_price: pd.DataFrame,) -> dict[str, dict[str, f
 
     print("\n🔍 Calculating energy price statistics...")
     stats = {}
+    has_multiple_geos = len(df_price["geo_name"].unique()) > 1
 
     for (name_type, geo_name), group_df in df_price.groupby(["name", "geo_name"], sort=False):
         values = group_df["value"]
@@ -80,11 +85,8 @@ def calculate_price_statistics(df_price: pd.DataFrame,) -> dict[str, dict[str, f
         hourly_series = group_df.set_index("datetime")["value"].resample("1h").mean()
         zero_low_hours = int((hourly_series <= 5.0).sum())
 
-        series_label = (
-            f"{name_type} ({geo_name})"
-            if len(df_price["geo_name"].unique()) > 1
-            else name_type
-        )
+        series_label = (f"{name_type} ({geo_name})" if has_multiple_geos else name_type)
+        display_label = translate_indicator(name_type, geo_name, has_multiple_geos)
 
         stats[series_label] = {
             "max": max_val,
@@ -95,9 +97,10 @@ def calculate_price_statistics(df_price: pd.DataFrame,) -> dict[str, dict[str, f
             "zero_low_price_hours": zero_low_hours,
             "geo_name": geo_name,
         }
-        print(f"💶 Price stats calculated for: {series_label}")
+        print(f"💶 Price stats calculated for: {display_label}")
 
     return stats
+
 
 def compare_demand_models(df: pd.DataFrame, targets: tuple[str, str] | None = None) -> dict[str, str | float | int]:
     """Performs advanced comparative analysis dynamically between two selected demand or price series.
@@ -118,10 +121,14 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple[str, str] | None = No
 
     # Validate that both models exist in the DataFrame to prevent KeyErrors
     if model_a not in df["name"].values or model_b not in df["name"].values:
-        print(f"⚠️ Advanced comparison skipped: One or both targets ('{model_a}', '{model_b}') are not in the current filtered data.")
+        model_a_en = translate_indicator(model_a)
+        model_b_en = translate_indicator(model_b)
+        print(f"⚠️ Advanced comparison skipped: One or both targets ('{model_a_en}', '{model_b_en}') are not in the current filtered data.")
         return {}
 
-    print(f"\n🧠 Running advanced comparative analysis between '{model_a}' and '{model_b}'...")
+    model_a_en = translate_indicator(model_a)
+    model_b_en = translate_indicator(model_b)
+    print(f"\n🧠 Running advanced comparative analysis between '{model_a_en}' and '{model_b_en}'...")
 
     # For comparison, ensure we isolate single geography or pivot by unique composite key
     df_work = df.copy()
@@ -168,31 +175,31 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple[str, str] | None = No
         "max_difference_value": max_diff_value,
         "max_difference_time": max_diff_time,
         "mape": mape,
-        "correlation": correlation
+        "correlation": correlation,
     }
 
     print("✅ Advanced comparative analysis completed successfully.")
     return comparison_stats
 
+
 def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY_THRESHOLD) -> dict[str, list[dict]]:
     """Detects abnormal spikes or drops in energy/price series using the Z-Score method.
-    An anomaly is defined as any value that deviates from the mean by more than
-    'threshold' times the standard deviation.
 
     Args:
         df (pd.DataFrame): The filtered energy DataFrame.
         threshold (float): The Z-score cutoff used to detect anomalies.
 
     Returns:
-        dict[str, list[dict]]: A dictionary categorized by indicator and region containing lists of detected anomalies.
+        dict[str, list[dict]]: A dictionary categorized by indicator containing lists of detected anomalies.
     """
     print("\n🔍 Scanning for statistical anomalies in dataset series...")
     anomalies_report = {}
+    has_multiple_geos = len(df["geo_name"].unique()) > 1
 
     # Analyze anomalies individually for each (name, geo_name) series
     for (series_name, geo_name), group_df in df.groupby(["name", "geo_name"]):
         if len(group_df) < 3:
-            continue # Not enough data points to compute variance reliably
+            continue
 
         mean_val = group_df["value"].mean()
         std_dev = group_df["value"].std()
@@ -207,7 +214,7 @@ def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY
         # Filter rows where the absolute Z-score breaks the threshold
         anomaly_rows = group_df[z_scores.abs() > threshold]
 
-        series_label = f"{series_name} ({geo_name})" if len(df["geo_name"].unique()) > 1 else series_name
+        series_label = (f"{series_name} ({geo_name})" if has_multiple_geos else series_name)
 
         if not anomaly_rows.empty:
             anomalies_report[series_label] = []

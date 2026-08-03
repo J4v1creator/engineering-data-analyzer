@@ -8,11 +8,9 @@ import pandas as pd
 from config.settings import (
     DEFAULT_OUTPUT_DIR,
     DEMAND_COLOR_PALETTE,
-    DEMAND_TRANSLATIONS,
     GEO_COLOR_PALETTE,
-    GEOGRAPHY_TRANSLATIONS,
-    PRICE_TRANSLATIONS,
 )
+from src.utils import translate_indicator
 
 
 def _plot_time_series(
@@ -21,7 +19,6 @@ def _plot_time_series(
     y_label: str,
     filename_prefix: str,
     color_palette: dict[str, str],
-    translations: dict[str, str],
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
 ) -> str:
     """Internal helper function to generate and save standardized time-series plots.
@@ -32,7 +29,6 @@ def _plot_time_series(
         y_label (str): Label for the Y-axis including units.
         filename_prefix (str): Prefix for the saved PNG file (e.g., 'demand' or 'price').
         color_palette (dict): Palette containing hex color mappings for each indicator.
-        translations (dict): Dictionary mapping Spanish indicator names to English.
         output_dir (str | Path): Destination directory for the plot.
 
     Returns:
@@ -68,11 +64,8 @@ def _plot_time_series(
     unique_geos = df["geo_name"].unique()
     has_multiple_geos = len(unique_geos) > 1
 
-    # Group by indicator name and plot each series independently
-    for name_spanish, english_name in translations.items():
-        if name_spanish not in df["name"].values:
-            continue
-
+    # Group by indicator name dynamically using existing names in DataFrame
+    for name_spanish in df["name"].unique():
         indicator_df = df[df["name"] == name_spanish]
         available_geos = indicator_df["geo_name"].unique()
 
@@ -80,14 +73,13 @@ def _plot_time_series(
             group_df = indicator_df[indicator_df["geo_name"] == geo_name]
             group_sorted = group_df.sort_values("datetime")
 
-            english_geo = GEOGRAPHY_TRANSLATIONS.get(geo_name, geo_name)
+            # Dynamic legend label translated centralizely via utils
+            legend_label = translate_indicator(name_spanish, geo_name=geo_name, show_geo=has_multiple_geos)
 
-            # Dynamic legend label
+            # # Palette color assignment
             if has_multiple_geos:
-                legend_label = f"{english_name} ({english_geo})"
                 color_hex = GEO_COLOR_PALETTE.get(geo_name, color_palette.get(name_spanish, "#7f7f7f"))
             else:
-                legend_label = english_name
                 color_hex = color_palette.get(name_spanish, color_palette.get("default", "#7f7f7f"))
 
             plt.plot(
@@ -139,7 +131,6 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str | Path = DEFAULT_OUTPUT
         y_label="Energy Demand (MW)",
         filename_prefix="plot_energy_demand",
         color_palette=DEMAND_COLOR_PALETTE,
-        translations=DEMAND_TRANSLATIONS,
         output_dir=output_dir,
     )
 
@@ -148,7 +139,7 @@ def plot_energy_price(df: pd.DataFrame, output_dir: str | Path = DEFAULT_OUTPUT_
     """Generates a multi-line plot of energy prices (€/MWh) over time.
 
     Args:
-        df (pd.DataFrame): Validated dataset with 'datetime', 'value', 'name, and 'geo_name'.
+        df (pd.DataFrame): Validated dataset with 'datetime', 'value', 'name', and 'geo_name'.
         output_dir (str | Path): Directory where the plot will be saved.
 
     Returns:
@@ -161,6 +152,5 @@ def plot_energy_price(df: pd.DataFrame, output_dir: str | Path = DEFAULT_OUTPUT_
         y_label="Energy Price (€/MWh)",
         filename_prefix="plot_energy_prices",
         color_palette=GEO_COLOR_PALETTE,
-        translations=PRICE_TRANSLATIONS,
         output_dir=output_dir,
     )

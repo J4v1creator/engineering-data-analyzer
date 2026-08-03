@@ -1,6 +1,9 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from src.utils import translate_indicator
+
+
 def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]) -> tuple[list[str], list[str]]:
     """Displays a single unified menu for both Demand and Price indicators.
 
@@ -24,14 +27,16 @@ def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]
     print("--- Energy Demands (MW) ---")
     for item in demands_list:
         menu_map[current_idx] = ("demand", item)
-        print(f"  [{current_idx}] {item}")
+        english_display = translate_indicator(item)
+        print(f"  [{current_idx}] {english_display}")
         current_idx += 1
 
     # Print Prices Section
     print("\n--- Energy Prices (€/MWh) ---")
     for item in prices_list:
         menu_map[current_idx] = ("price", item)
-        print(f"  [{current_idx}] {item}")
+        english_display = translate_indicator(item)
+        print(f"  [{current_idx}] {english_display}")
         current_idx += 1
 
     # Print Quick Actions
@@ -42,7 +47,7 @@ def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]
 
     while True:
         try:
-            user_input = input(f"\nEnter numbers separated by commas (e.g., '1,2' for demands, '5,6' for prices, or '0' for none): ").strip()
+            user_input = input("\nEnter numbers separated by commas (e.g., '1,2' for demands, '5,6' for prices, or '0' for none): ").strip()
 
             # Option 0: User wants to exit or select nothing
             if user_input == "0":
@@ -68,11 +73,13 @@ def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]
                     else:
                         selected_prices.append(name)
 
-                # Feedback logs
+                # Feedback logs translated to English
                 if selected_demands:
-                    print(f"✅ Selected Demands: {', '.join(selected_demands)}")
+                    english_demands = [translate_indicator(demand) for demand in selected_demands]
+                    print(f"✅ Selected Demands: {', '.join(english_demands)}")
                 if selected_prices:
-                    print(f"✅ Selected Prices:  {', '.join(selected_prices)}")
+                    english_prices = [translate_indicator(price) for price in selected_prices]
+                    print(f"✅ Selected Prices:  {', '.join(english_prices)}")
 
                 return selected_demands, selected_prices
             else:
@@ -81,13 +88,13 @@ def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]
         except ValueError:
             print("❌ Input format error. Please use numbers separated by commas (e.g., 1,5).")
 
+
 def ask_comparison_targets(all_demands: list[str], selected_demands: list[str]) -> tuple[str, str] | None:
     """Prompts the user to select exactly two distinct demand types for cross-analysis.
 
     Args:
         all_demands (list[str]): A list of all unique demand types available.
-        selected_demands (list[str]): A list of strings containing the names of the 
-        demands previously selected by the user.
+        selected_demands (list[str]): A list of strings containing the names of the demands previously selected by the user.
 
     Returns:
         tuple[str, str] | None: Names of the two distinct demand types selected for comparison or None if insufficient.
@@ -107,7 +114,8 @@ def ask_comparison_targets(all_demands: list[str], selected_demands: list[str]) 
     for demand in selected_demands:
         global_idx = all_demands.index(demand) + 1
         indexed_selection[global_idx] = demand
-        print(f"  [{global_idx}] {demand}")
+        english_display = translate_indicator(demand)
+        print(f"  [{global_idx}] {english_display}")
 
     while True:
         try:
@@ -131,6 +139,7 @@ def ask_comparison_targets(all_demands: list[str], selected_demands: list[str]) 
         except ValueError:
             print("❌ Input format error. Please use numbers separated by commas only (e.g., 1,2).")
 
+
 def display_anomalies_summary(anomalies: dict[str, list]) -> None:
     """Prints a clean, formatted summary of the detected anomalies in the console.
 
@@ -140,9 +149,17 @@ def display_anomalies_summary(anomalies: dict[str, list]) -> None:
     if anomalies:
         print("\n⚠️ --- ANOMALY DETECTION SUMMARY ---")
         for indicator_label, issues in anomalies.items():
-            print(f"⚠️ {indicator_label}: Found {len(issues)} statistical anomalies.")
+            # If the key contains parenthesis like "Demanda real (Península)", format dynamically
+            if "(" in indicator_label and ")" in indicator_label:
+                raw_name, raw_geo = indicator_label.split(" (")
+                raw_geo = raw_geo.rstrip(")")
+                display_label = translate_indicator(raw_name, geo_name=raw_geo, show_geo=True)
+            else:
+                display_label = translate_indicator(indicator_label)
+            print(f"⚠️ {display_label}: Found {len(issues)} statistical anomalies.")
     else:
         print("✅ No anomalies detected in the selected series.")
+
 
 def get_user_datetime_filter() -> tuple[datetime, datetime]:
     """Prompts the user to enter a specific start and end datetime range.
@@ -151,8 +168,7 @@ def get_user_datetime_filter() -> tuple[datetime, datetime]:
         tuple[datetime, datetime]: Start and end boundaries as timezone-aware datetime objects.
 
     Raises:
-        ValueError: If the user inputs invalid date or time formats, or if the start date
-            is not earlier than the end date.
+        ValueError: If the user inputs invalid date or time formats, or if the start date is not earlier than the end date.
     """
     madrid_tz = ZoneInfo("Europe/Madrid")
 
