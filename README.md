@@ -41,6 +41,7 @@ engineering-data-analyzer/
 │   ├── database.py           # SQLite database connection managers and queries
 │   ├── esios_client.py       # ESIOS API HTTP gateway regional and data loading logic
 │   ├── report.py             # Automated text report rendering engine for demand and prices
+│   ├── utils.py              # Centralized indicator translation and formatting utilities
 │   ├── validator.py          # Structural verification and timezone-aware datatype firewall
 │   └── visualizer.py         # Matplotlib rendering and charting engine with geographic region mapping
 │
