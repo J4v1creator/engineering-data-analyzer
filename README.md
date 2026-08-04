@@ -14,6 +14,7 @@ Specifically tailored to interface directly with the **Red Eléctrica de España
 * 🧠 **Advanced Analytics & Cross-Modeling (`analyzer.py`):** Specialized mathematical metrics separated by indicator type:
     * **Demand Analytics:** Mean, median, standard deviation, peak load times, and dynamic cross-model evaluation measuring Mean Absolute Percentage Error (MAPE) and Pearson Correlation ($r$).
     * **Market Price Analytics:** Maximum/minimum price detection, time-stamped peak/valley tracking, market price spreads ($Price_{max} - Price_{min}$), and zero/low-price hour tracking ($\le 5.0$ €/MWh).
+    * **Market Economic Volume:** Temporal alignment of 5-min real demand and 15-min SPOT prices into 1-hour resolution to calculate total traded market value ($M€$), Volume-Weighted Average Price (VWAP), and peak expenditure hours.
 * ⚠️ **Statistical Anomaly Detection:** Automated screening for abnormal demand spikes or drops using a configurable Z-Score methodology ($> 2.0$ standard deviations).
 * 📉 **High-Resolution Visualizations (`visualizer.py`):** Automated generation of independent, publication-quality multi-line charts saved directly as high-DPI artifacts in `outputs/` for both energy demand and regional price series.
 * 📄 **Automated Reporting System (`report.py`):** Dynamic file writer compiling full execution metadata, specialized price/demand statistics, regional breakdowns, and delta error modeling into structured plain-text reports in `outputs/`.
@@ -35,7 +36,7 @@ engineering-data-analyzer/
 │
 ├── src/                      # Package source root
 │   ├── __init__.py           # Package initialization marker
-│   ├── analyzer.py           # Core mathematics, price spread evaluation, and Z-Score anomaly modeling
+│   ├── analyzer.py           # Core mathematics, price spread evaluation, market volume calculation, and Z-Score anomaly modeling
 │   ├── cleaner.py            # Cache maintenance engine and expired DB entry cleaner
 │   ├── cli.py                # Interactive command-line interface mechanics
 │   ├── database.py           # SQLite database connection managers and queries
@@ -99,5 +100,5 @@ python main.py
 2. **Temporal & Demand Filtering (`cli.py`):** Prompts the user via CLI for a date/time window, energy demand categories, and market price indicators.
 3. **Extraction & Cache Lookup (`esios_client.py`):** Fetches dataset from local SQLite cache if present; otherwise, issues authenticated HTTP requests to the e·sios API and stores the results.
 4. **Validation (`validator.py`):** Enforces column schema checks (`id`, `name`, `geo_id`,`geo_name`, `value`, `datetime`), null checks, and timezone consistency.
-5. **Cross-Analysis & Anomalies (`analyzer.py`):** Computes dedicated demand metrics, price volatility statistics (spreads and low-price hours), pairwise model evaluations (MAPE, Pearson correlation), and regional Z-score calculations.
-6. **Output Generation:** Displays anomaly summaries on the terminal, exporting independent demand and price plots (`plot_energy_demand_[TIMESTAMP].png`, `plot_energy_prices_[TIMESTAMP].png`) and the analytical document (`report_energy_demand_[TIMESTAMP].txt`) directly into `outputs/`.
+5. **Cross-Analysis & Volume Calculation (`analyzer.py`):** Computes dedicated demand metrics, price volatility statistics (spreads and low-price hours), pairwise model evaluations (MAPE, Pearson correlation), regional Z-score calculations, and total wholesale market volume ($M€$) by aligning demand and SPOT price time-series.
+6. **Output Generation:** Displays anomaly summaries and market volume metrics on the terminal, exporting independent demand and price plots (`plot_energy_demand_[TIMESTAMP].png`, `plot_energy_prices_[TIMESTAMP].png`) and the analytical document (`report_energy_demand_[TIMESTAMP].txt`) directly into `outputs/`.
