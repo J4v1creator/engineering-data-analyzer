@@ -1,19 +1,22 @@
 import sys
+
 from config.settings import DEMAND_TRANSLATIONS, PRICE_TRANSLATIONS
-from src.analyzer import calculate_demand_statistics, calculate_price_statistics, compare_demand_models, detect_demand_anomalies
+from src.analyzer import calculate_demand_statistics, calculate_market_economic_volume, calculate_price_statistics, compare_demand_models, detect_demand_anomalies
 from src.cleaner import clean_expired_cache
-from src.cli import ask_comparison_targets, display_anomalies_summary, get_user_datetime_filter, get_user_indicator_selection
+from src.cli import ask_comparison_targets, display_anomalies_summary, display_market_volume_summary, get_user_datetime_filter, get_user_indicator_selection
 from src.database import init_db
 from src.esios_client import get_energy_data
 from src.report import generate_text_report
 from src.validator import validate_dataset
 from src.visualizer import plot_energy_demand, plot_energy_price
 
+
 def main() -> None:
     """Main orchestrator for the energy demand and market price analysis pipeline.
 
     Handles user configuration, interactive CLI choices, data fetching (API/Cache),
-    quality validation, metric generation, anomaly detection, and artifact exports.
+    quality validation, metric generation, anomaly detection, market volume alignment,
+    and artifact exports.
     """
     print("==================================================")
     print("🚀 STARTING ENERGY DATA ANALYSIS PIPELINE")
@@ -67,9 +70,11 @@ def main() -> None:
         price_stats = calculate_price_statistics(df_prices)
         comp_stats = compare_demand_models(df_filtered, comparison_targets)
         anomalies = detect_demand_anomalies(df_filtered)
+        market_volume_stats = calculate_market_economic_volume(df_filtered)
 
         # Output: Render descriptive warning logs and runtime evaluation summaries to the CLI
         display_anomalies_summary(anomalies, demand_stats)
+        display_market_volume_summary(market_volume_stats)
 
         # Output: Generate independent visualization charts for Demands and Prices
         saved_plots = []
@@ -85,7 +90,7 @@ def main() -> None:
             saved_plots.append(f"💶 Price Plot:  {price_plot_path}")
 
         # Output: Generate text files detailing consolidated metrics and performance history
-        report_path = generate_text_report(df_filtered, demand_stats, price_stats, comp_stats, anomalies, start_dt, end_dt)
+        report_path = generate_text_report(df_filtered, start_dt, end_dt, demand_stats, price_stats, comp_stats, anomalies, market_volume_stats)
 
         print("\n==================================================")
         print("🎉 [SUCCESS] Pipeline executed perfectly!")
@@ -106,6 +111,7 @@ def main() -> None:
     except Exception as e:
         print(f"\n❌ Unexpected System Error:\n{e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

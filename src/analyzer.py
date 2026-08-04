@@ -231,3 +231,75 @@ def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY
                 })
 
     return anomalies_report
+
+
+def calculate_market_economic_volume(df: pd.DataFrame) -> dict:
+    """Calculates the total economic volume (€) moved in the wholesale market
+    by aligning demand (5-min) and SPOT price (15-min) into 1-hour intervals.
+
+    Args:
+        df (pd.DataFrame): Validated market dataframe containing id, name, geo_id, geo_name, value, datetime.
+
+    Returns:
+        dict: Summary of market volume metrics (total euros, peak spend hour,
+        weighted average price).
+    """
+    # Filter for correct series and compatible regions
+    demand_mask = (df["name"] == "Demanda real") & (df["geo_name"].str.contains("Península", case=False, na=False))
+    spot_mask = (df["name"] == "Precio mercado SPOT Diario") & (df["geo_name"].str.contains("España", case=False, na=False))
+
+    demand_df = df[demand_mask].copy()
+    spot_df = df[spot_mask].copy()
+
+    if demand_df.empty or spot_df.empty:
+        return {}
+
+    # Temporary resampling to 1 hour (1h)
+    demand_df["datetime"] = pd.to_datetime(demand_df["datetime"])
+    spot_df["datetime"] = pd.to_datetime(spot_df["datetime"])
+
+    # Group by hour using resample
+    demand_hourly = (
+        demand_df.set_index("datetime")["value"]
+        .resample("1h")
+        .mean()
+        .reset_index()
+        .rename(columns={"value": "demand_mwh"})
+    )
+
+    spot_hourly = (
+        spot_df.set_index("datetime")["value"]
+        .resample("1h")
+        .mean()
+        .reset_index()
+        .rename(columns={"value": "spot_price_eur_mwh"})
+    )
+
+    # Merge both hourly aligned tables
+    merged = pd.merge(demand_hourly, spot_hourly, on="datetime", how="inner")
+
+    if merged.empty:
+        return {}
+
+    # Calculation of Economic Volume (€ per hour)
+    merged["hourly_volume_eur"] = (merged["demand_mwh"] * merged["spot_price_eur_mwh"])
+
+    # Consolidated metrics
+    total_volume_eur = merged["hourly_volume_eur"].sum()
+    total_energy_mwh = merged["demand_mwh"].sum()
+
+    # Hour of maximum economic spending
+    max_spend_row = merged.loc[merged["hourly_volume_eur"].idxmax()]
+
+    # Demand-weighted average price (VWAP)
+    volume_weighted_avg_price = (total_volume_eur / total_energy_mwh if total_energy_mwh > 0 else 0.0)
+
+    return {
+        "total_volume_eur": total_volume_eur,
+        "total_energy_mwh": total_energy_mwh,
+        "weighted_avg_price": volume_weighted_avg_price,
+        "peak_spend_hour": max_spend_row["datetime"],
+        "peak_spend_eur": max_spend_row["hourly_volume_eur"],
+        "peak_spend_demand_mw": max_spend_row["demand_mwh"],
+        "peak_spend_price_eur": max_spend_row["spot_price_eur_mwh"],
+    }

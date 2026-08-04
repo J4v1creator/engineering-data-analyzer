@@ -9,25 +9,27 @@ from src.utils import translate_indicator
 
 def generate_text_report(
     df: pd.DataFrame,
+    start_dt: datetime | None,
+    end_dt: datetime | None,
     demand_stats: dict,
     price_stats: dict,
     comp_stats: dict | None = None,
     anomalies: dict | None = None,
-    start_dt: datetime | None = None,
-    end_dt: datetime | None = None,
+    market_volume_stats: dict | None = None,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
 ) -> str:
-    """Generates a structured, professional text report summarizing statistical insights
-    for both energy demand (MW) and energy prices (€/MWh).
+    """"Generates a complete text report including demand, prices, models, anomalies,
+    and market economic volume metrics.
 
     Args:
         df (pd.DataFrame): The validated dataset.
+        start_dt (datetime | None): Start datetime of analyzed range.
+        end_dt (datetime | None): End datetime of analyzed range.
         demand_stats (dict): Dictionary of demand statistics calculated by the analyzer.
         price_stats (dict): Dictionary of price statistics calculated by the analyzer.
         comp_stats (dict | None): Advanced comparison statistics for demands.
         anomalies (dict | None): Dictionary of detected anomalies.
-        start_dt (datetime | None): Start datetime of analyzed range.
-        end_dt (datetime | None): End datetime of analyzed range.
+        market_volume_stats (dict | None): Dictionary of market volume statistics.
         output_dir (str | Path): Directory where the report will be saved.
 
     Returns:
@@ -180,6 +182,35 @@ Compared Target     (Model B): {model_b_en}
 
     if not has_printed_anomalies:
         report_content += "\n- No statistical anomalies detected in energy demand data.\n"
+
+    # Market Economic Volume Analysis
+    report_content += f"""
+--------------------------------------------------
+6. MARKET ECONOMIC VOLUME ANALYSIS (DEMAND × SPOT PRICE)
+--------------------------------------------------"""
+
+    if market_volume_stats:
+        total_m_eur = market_volume_stats["total_volume_eur"] / 1_000_000
+        total_gwh = market_volume_stats["total_energy_mwh"] / 1_000
+        vwap = market_volume_stats["weighted_avg_price"]
+        peak_spend_eur = market_volume_stats["peak_spend_eur"] / 1_000
+        peak_time = market_volume_stats["peak_spend_hour"]
+        peak_mw = market_volume_stats["peak_spend_demand_mw"]
+        peak_price = market_volume_stats["peak_spend_price_eur"]
+
+        report_content += f"""
+• Total Electricity Traded Volume : {total_m_eur:.2f} M€
+• Total Energy Demand Processed   : {total_gwh:.2f} GWh
+• Volume-Weighted Avg Price (VWAP): {vwap:.2f} €/MWh
+
+• Peak Expenditure Hour:
+    ↳ Timestamp : {peak_time}
+    ↳ Hourly Cost: {peak_spend_eur:.2f} k€
+    ↳ Demand    : {peak_mw:.2f} MW
+    ↳ SPOT Price: {peak_price:.2f} €/MWh
+"""
+    else:
+        report_content += "\n- Market economic volume assessment skipped (insufficient matching data).\n"
 
     # Report Footer
     report_content += """

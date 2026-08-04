@@ -208,3 +208,22 @@ def get_user_datetime_filter() -> tuple[datetime, datetime]:
 
         except ValueError:
             print("❌ Invalid format. Please check your dates (YYYY-MM-DD) and times (HH:MM).\n")
+
+
+def display_market_volume_summary(volume_stats: dict) -> None:
+    """Prints a concise summary of the market economic volume calculation in the console.
+
+    Args:
+        volume_stats (dict): Dictionary containing calculated market volume metrics.
+    """
+    if not volume_stats:
+        print("⚠️ Market volume calculation skipped (missing required demand or SPOT price series).")
+        return
+
+    total_million_eur = volume_stats.get("total_volume_eur", 0.0) / 1_000_000
+    weighted_price = volume_stats.get("weighted_avg_price", 0.0)
+
+    print("\n💶 --- MARKET ECONOMIC VOLUME ANALYSIS ---")
+    print("✅ Market demand and SPOT prices successfully aligned (1-hour resolution).")
+    print(f"📊 Total Market Volume: {total_million_eur:.2f} M€")
+    print(f"📈 Volume-Weighted Average Price (VWAP): {weighted_price:.2f} €/MWh")
