@@ -6,6 +6,7 @@ from src.cleaner import clean_expired_cache
 from src.cli import ask_comparison_targets, display_anomalies_summary, display_market_volume_summary, get_user_datetime_filter, get_user_indicator_selection
 from src.database import init_db
 from src.esios_client import get_energy_data
+from src.exporter import export_to_excel
 from src.report import generate_text_report
 from src.validator import validate_dataset
 from src.visualizer import plot_energy_demand, plot_energy_price
@@ -92,11 +93,15 @@ def main() -> None:
         # Output: Generate text files detailing consolidated metrics and performance history
         report_path = generate_text_report(df_filtered, start_dt, end_dt, demand_stats, price_stats, comp_stats, anomalies, market_volume_stats)
 
+        # Output: Export all relevant datasets, metrics, and visualizations to a single Excel workbook
+        excel_path = export_to_excel(df_filtered, demand_stats, price_stats, comp_stats, anomalies, market_volume_stats)
+
         print("\n==================================================")
         print("🎉 [SUCCESS] Pipeline executed perfectly!")
         for plot_path in saved_plots:
             print(f"  ↳ {plot_path}")
         print(f"  ↳ 📄 Report saved to: {report_path}")
+        print(f"  ↳ 📊 Excel workbook saved to: {excel_path}")
         print("==================================================")
 
     except RuntimeError as e:
