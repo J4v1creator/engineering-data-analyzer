@@ -7,6 +7,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from config.settings import DEFAULT_OUTPUT_DIR
+from src.utils import translate_indicator
 
 
 def _apply_workbook_styles(file_path: Path) -> None:
@@ -119,6 +120,7 @@ def export_to_excel(
     filename = f"energy_analysis_{start_str}_to_{end_str}.xlsx"
     file_path = out_dir_path / filename
 
+    # Create Excel Writer
     with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
         # ==========================================
         # TAB 1: EXECUTIVE SUMMARY
@@ -167,20 +169,32 @@ def export_to_excel(
 
         # Quick Indicators Overview Block
         summary_rows = []
+
+        has_multiple_geos = False
+        if "geo_name" in df.columns and not df["geo_name"].empty:
+            has_multiple_geos = df["geo_name"].nunique(dropna=True) > 1
+
         for name, stats in demand_stats.items():
+            base_name = name.split(" (")[0]
+            geo_name = stats.get("geo_name", "")
+            translated_name = translate_indicator(name)
             summary_rows.append(
                 {
-                    "Indicator": name,
+                    "Indicator": translated_name,
                     "Type": "Demand",
                     "Mean": stats.get("mean"),
                     "Max": stats.get("max"),
                     "Min": stats.get("min"),
                 }
             )
-        for name, stats in price_stats.items():
+
+        for series_label, stats in price_stats.items():
+            base_name = series_label.split(" (")[0]
+            geo_name = stats.get("geo_name", "")
+            translated_name = translate_indicator(base_name, geo_name=geo_name, show_geo=has_multiple_geos)
             summary_rows.append(
                 {
-                    "Indicator": name,
+                    "Indicator": translated_name,
                     "Type": "Price",
                     "Mean": stats.get("mean"),
                     "Max": stats.get("max"),
@@ -197,9 +211,10 @@ def export_to_excel(
         # 1. Demand Statistics Table
         demand_rows = []
         for name, stats in demand_stats.items():
+            translated_name = translate_indicator(name)
             demand_rows.append(
                 {
-                    "Indicator Name": name,
+                    "Indicator Name": translated_name,
                     "Mean (MW)": stats.get("mean"),
                     "Median (MW)": stats.get("median"),
                     "Std Dev (MW)": stats.get("std"),
@@ -229,10 +244,13 @@ def export_to_excel(
 
         # 2. Price Statistics Table (placed below Demand Table)
         price_rows = []
-        for name, stats in price_stats.items():
+        for series_label, stats in price_stats.items():
+            base_name = series_label.split(" (")[0]
+            geo_name = stats.get("geo_name", "")
+            translated_name = translate_indicator(base_name, geo_name=geo_name, show_geo=has_multiple_geos)
             price_rows.append(
                 {
-                    "Indicator Name": name,
+                    "Indicator Name": translated_name,
                     "Max (€/MWh)": stats.get("max"),
                     "Max Timestamp": str(stats.get("max_time", "N/A")),
                     "Min (€/MWh)": stats.get("min"),
@@ -270,8 +288,8 @@ def export_to_excel(
         if comp_stats:
             comp_rows.append(
                 {
-                    "Baseline Series": comp_stats.get("series_1"),
-                    "Target Series": comp_stats.get("series_2"),
+                    "Baseline Series": translate_indicator(comp_stats.get("series_1", "")),
+                    "Target Series": translate_indicator(comp_stats.get("series_2", "")),
                     "MAPE (%)": comp_stats.get("mape"),
                     "Pearson Correlation (r)": comp_stats.get(
                         "pearson_correlation"
@@ -305,7 +323,7 @@ def export_to_excel(
                 anomaly_rows.append(
                     {
                         "Timestamp": str(rec.get("datetime")),
-                        "Indicator Name": rec.get("indicator"),
+                        "Indicator Name": translate_indicator(rec.get("indicator", "")),
                         "Observed Value (MW)": rec.get("value"),
                         "Series Mean (MW)": rec.get("mean"),
                         "Series Std Dev": rec.get("std"),
