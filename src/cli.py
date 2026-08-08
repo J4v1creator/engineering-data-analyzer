@@ -1,21 +1,23 @@
+"""Interactive Command-Line Interface (CLI) components, menu navigation, and input handlers."""
+
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from src.utils import translate_indicator
 
 
-def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]) -> tuple[list[str], list[str]]:
-    """Displays a single unified menu for both Demand and Price indicators.
+def get_user_indicator_selection(demands_list: list[int], prices_list: list[int]) -> tuple[list[int], list[int]]:
+    """Displays a unified menu for selecting both Demand and Price indicators.
 
     Args:
-        demands_list (list[str]): Available demand indicator names.
-        prices_list (list[str]): Available price indicator names.
+        demands_list (list[int]): Available demand indicator IDs.
+        prices_list (list[int]): Available price indicator IDs.
 
     Returns:
-        tuple[list[str], list[str]]: Selected demands and selected prices.
+        tuple[list[int], list[int]]: Selected demand IDs and selected price IDs.
 
     Raises:
-        ValueError: If the user inputs invalid selections or fails to select any indicators.
+        ValueError: If the user inputs invalid option numbers or formats.
     """
     print("\n📊 --- INDICATOR SELECTION MENU ---")
     print("Select indicators to analyze (Demands, Prices, or Both):\n")
@@ -27,7 +29,7 @@ def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]
     print("--- Energy Demands (MW) ---")
     for item in demands_list:
         menu_map[current_idx] = ("demand", item)
-        english_display = translate_indicator(item)
+        english_display = translate_indicator(indicator_id=item)
         print(f"  [{current_idx}] {english_display}")
         current_idx += 1
 
@@ -35,11 +37,11 @@ def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]
     print("\n--- Energy Prices (€/MWh) ---")
     for item in prices_list:
         menu_map[current_idx] = ("price", item)
-        english_display = translate_indicator(item)
+        english_display = translate_indicator(indicator_id=item)
         print(f"  [{current_idx}] {english_display}")
         current_idx += 1
 
-    # Print Quick Actions
+    # Quick Actions
     all_option_idx = current_idx
     print("\n--- Quick Actions ---")
     print(f"  [{all_option_idx}] ANALYZE ALL (Demands & Prices)")
@@ -49,17 +51,14 @@ def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]
         try:
             user_input = input("\nEnter numbers separated by commas (e.g., '1,2' for demands, '5,6' for prices, or '0' for none): ").strip()
 
-            # Option 0: User wants to exit or select nothing
             if user_input == "0":
                 print("⏩ No indicators selected.")
                 return [], []
 
-            # Default / ALL option
             if user_input == "" or user_input == str(all_option_idx):
                 print("🔄 Selecting all available demands and prices...")
                 return demands_list, prices_list
 
-            # Process comma-separated list
             selected_indices = [int(x.strip()) for x in user_input.split(",")]
 
             if all(idx in menu_map for idx in selected_indices):
@@ -67,18 +66,24 @@ def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]
                 selected_prices = []
 
                 for idx in selected_indices:
-                    category, name = menu_map[idx]
+                    category, indicator_id = menu_map[idx]
                     if category == "demand":
-                        selected_demands.append(name)
+                        selected_demands.append(indicator_id)
                     else:
-                        selected_prices.append(name)
+                        selected_prices.append(indicator_id)
 
-                # Feedback logs translated to English
                 if selected_demands:
-                    english_demands = [translate_indicator(demand) for demand in selected_demands]
+                    english_demands = [
+                        translate_indicator(indicator_id=demand_id) 
+                        for demand_id in selected_demands
+                    ]
                     print(f"✅ Selected Demands: {', '.join(english_demands)}")
+
                 if selected_prices:
-                    english_prices = [translate_indicator(price) for price in selected_prices]
+                    english_prices = [
+                        translate_indicator(indicator_id=price_id) 
+                        for price_id in selected_prices
+                    ]
                     print(f"✅ Selected Prices:  {', '.join(english_prices)}")
 
                 return selected_demands, selected_prices
@@ -89,49 +94,42 @@ def get_user_indicator_selection(demands_list: list[str], prices_list: list[str]
             print("❌ Input format error. Please use numbers separated by commas (e.g., 1,5).")
 
 
-def ask_comparison_targets(all_demands: list[str], selected_demands: list[str]) -> tuple[str, str] | None:
+def ask_comparison_targets(selected_demands: list[int]) -> tuple[int, int] | None:
     """Prompts the user to select exactly two distinct demand types for cross-analysis.
 
     Args:
-        all_demands (list[str]): A list of all unique demand types available.
-        selected_demands (list[str]): A list of strings containing the names of the demands previously selected by the user.
+        selected_demands (list[int]): List of demand IDs selected by the user.
 
     Returns:
-        tuple[str, str] | None: Names of the two distinct demand types selected for comparison or None if insufficient.
+        tuple[int, int] | None: IDs of the two distinct demand types selected or None if insufficient.
 
     Raises:
-        ValueError: If the user fails to select exactly two distinct demand types.
+        ValueError: If the user inputs invalid option numbers or formats.
     """
-    # Defensive check: if fewer than 2 demands were selected, cross-analysis isn't possible
     if len(selected_demands) < 2:
         return None
 
     print("\n🔍 --- ADVANCED DEMAND COMPARISON SELECTION ---")
     print("You selected multiple demands. Which two would you like to cross-analyze?")
 
-    # Map global index to each active demand option
-    indexed_selection = {}
-    for demand in selected_demands:
-        global_idx = all_demands.index(demand) + 1
-        indexed_selection[global_idx] = demand
-        english_display = translate_indicator(demand)
-        print(f"  [{global_idx}] {english_display}")
+    indexed_selection = {i + 1: demand_id for i, demand_id in enumerate(selected_demands)}
+    for idx, demand_id in indexed_selection.items():
+        english_display = translate_indicator(indicator_id=demand_id)
+        print(f"  [{idx}] {english_display}")
 
     while True:
         try:
             user_input = input("\nSelect exactly two numbers separated by a comma (e.g., 1,2): ").strip()
             indices = [int(x.strip()) for x in user_input.split(",")]
 
-            # Validate that exactly two valid choices were made
             if len(indices) == 2 and all(idx in indexed_selection for idx in indices):
-                # Ensure they didn't pick the exact same number twice (e.g., 1,1)
                 if indices[0] == indices[1]:
                     print("❌ You cannot compare a demand type against itself. Please pick two different ones.")
                     continue
 
-                model_a = indexed_selection[indices[0]]
-                model_b = indexed_selection[indices[1]]
-                return model_a, model_b
+                model_a_id = indexed_selection[indices[0]]
+                model_b_id = indexed_selection[indices[1]]
+                return model_a_id, model_b_id
 
             valid_options = ", ".join(map(str, indexed_selection.keys()))
             print(f"❌ Invalid choice. Please enter exactly two numbers from your active options: [{valid_options}].")
@@ -141,31 +139,25 @@ def ask_comparison_targets(all_demands: list[str], selected_demands: list[str]) 
 
 
 def display_anomalies_summary(anomalies: dict[str, list], demand_stats: dict) -> None:
-    """Prints a clean, formatted summary of the detected anomalies in the console.
+    """Prints a clean, formatted summary of detected anomalies in console.
 
     Args:
-        anomalies (dict[str, list]): Mapping of indicator/region names to lists of detected issues.
-        demand_stats (dict): Statistics for the selected demand indicators.
+        anomalies (dict[str, list]): Mapping of indicator/region names of detected issues.
+        demand_stats (dict): Statistics for selected demand indicators.
     """
     if anomalies and demand_stats:
         print("\n⚠️ --- ANOMALY DETECTION SUMMARY ---")
         has_printed = False
 
-        for demand_key, metrics in demand_stats.items():
-            base_demand_name = demand_key.split(" (")[0]
-
-            for series_label, issues in anomalies.items():
-                if series_label.startswith(base_demand_name) and issues:
-                    has_printed = True
-                    geo_name = metrics.get("geo_name", "")
-
-                    display_label = translate_indicator(base_demand_name, geo_name=geo_name, show_geo=True)
-                    print(f"⚠️ {display_label}: Found {len(issues)} statistical anomalies.")
+        for series_label, issues in anomalies.items():
+            if issues:
+                has_printed = True
+                print(f"⚠️ {series_label}: Found {len(issues)} statistical anomalies.")
 
         if not has_printed:
-            print("✅ No anomalies detected in the selected series.")
+            print("✅ No anomalies detected in selected series.")
     else:
-        print("✅ No anomalies detected in the selected series.")
+        print("✅ No anomalies detected in selected series.")
 
 
 def get_user_datetime_filter() -> tuple[datetime, datetime]:
@@ -187,19 +179,15 @@ def get_user_datetime_filter() -> tuple[datetime, datetime]:
     while True:
         try:
             print("\n--- Enter Start Period ---")
-            # Request and parse start datetime
             start_date = input("Start Date: ").strip()
             start_time = input("Start Time: ").strip()
-            # Combine both strings into a single datetime
             start_dt = datetime.strptime(f"{start_date} {start_time}", "%Y-%m-%d %H:%M").replace(tzinfo=madrid_tz)
 
             print("\n--- Enter End Period ---")
-            # Request and parse end datetime
             end_date = input("End Date: ").strip()
             end_time = input("End Time: ").strip()
             end_dt = datetime.strptime(f"{end_date} {end_time}", "%Y-%m-%d %H:%M").replace(tzinfo=madrid_tz)
 
-            # Ensure the range is chronologically valid
             if start_dt >= end_dt:
                 print("❌ Error: Start period must be earlier than End period. Try again.\n")
                 continue
@@ -211,7 +199,7 @@ def get_user_datetime_filter() -> tuple[datetime, datetime]:
 
 
 def display_market_volume_summary(volume_stats: dict) -> None:
-    """Prints a concise summary of the market economic volume calculation in the console.
+    """Prints a concise summary of the market economic volume calculation in console.
 
     Args:
         volume_stats (dict): Dictionary containing calculated market volume metrics.
