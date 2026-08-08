@@ -1,3 +1,5 @@
+"""Time-series visualization module for energy demand and market price indicators using Matplotlib."""
+
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -5,11 +7,7 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from config.settings import (
-    DEFAULT_OUTPUT_DIR,
-    DEMAND_COLOR_PALETTE,
-    GEO_COLOR_PALETTE,
-)
+from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_COLOR_PALETTE, GEO_COLOR_PALETTE
 from src.utils import translate_indicator
 
 
@@ -18,13 +16,13 @@ def _plot_time_series(
     title: str,
     y_label: str,
     filename_prefix: str,
-    color_palette: dict[str, str],
+    color_palette: dict[int | str, str],
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
 ) -> str:
     """Internal helper function to generate and save standardized time-series plots.
 
     Args:
-        df (pd.DataFrame): Validated dataset with 'datetime', 'value', 'name', and 'geo_name'.
+        df (pd.DataFrame): Validated dataset with datetime, value, indicator_id/id, and geo_id.
         title (str): Chart title.
         y_label (str): Label for the Y-axis including units.
         filename_prefix (str): Prefix for the saved PNG file (e.g., 'demand' or 'price').
@@ -38,11 +36,9 @@ def _plot_time_series(
         print(f"⚠️ [Visualizer] Skipping plot creation for '{filename_prefix}': Dataset is empty.")
         return ""
 
-    # Ensure output directory exists
     out_dir_path = Path(output_dir)
     out_dir_path.mkdir(parents=True, exist_ok=True)
 
-    # Dynamic filename generation based on dataset temporal range
     min_dt = df["datetime"].min()
     max_dt = df["datetime"].max()
 
@@ -56,57 +52,46 @@ def _plot_time_series(
     filename = f"{filename_prefix}_{start_str}_to_{end_str}.png"
     output_path = out_dir_path / filename
 
-    # Setup the plot figure size and style
     plt.figure(figsize=(14, 7))
     plt.style.use("seaborn-v0_8-whitegrid")
 
-    # Determine if multiple geographic regions exist in this dataset
-    unique_geos = df["geo_name"].unique()
-    has_multiple_geos = len(unique_geos) > 1
+    has_multiple_geos = df["geo_id"].nunique() > 1
+    id_col = "indicator_id" if "indicator_id" in df.columns else "id"
 
-    # Group by indicator name dynamically using existing names in DataFrame
-    for name_spanish in df["name"].unique():
-        indicator_df = df[df["name"] == name_spanish]
-        available_geos = indicator_df["geo_name"].unique()
+    for (ind_id, geo_id), group_df in df.groupby([id_col, "geo_id"]):
+        group_sorted = group_df.sort_values("datetime")
 
-        for geo_name in available_geos:
-            group_df = indicator_df[indicator_df["geo_name"] == geo_name]
-            group_sorted = group_df.sort_values("datetime")
+        legend_label = translate_indicator(indicator_id=ind_id, geo_id=geo_id, show_geo=has_multiple_geos)
 
-            # Dynamic legend label translated centralizely via utils
-            legend_label = translate_indicator(name_spanish, geo_name=geo_name, show_geo=has_multiple_geos)
+        name_spanish = group_df["name"].iloc[0] if "name" in group_df.columns else ""
+        geo_name = group_df["geo_name"].iloc[0] if "geo_name" in group_df.columns else ""
 
-            # # Palette color assignment
-            if has_multiple_geos:
-                color_hex = GEO_COLOR_PALETTE.get(geo_name, color_palette.get(name_spanish, "#7f7f7f"))
-            else:
-                color_hex = color_palette.get(name_spanish, color_palette.get("default", "#7f7f7f"))
+        if has_multiple_geos:
+            color_hex = GEO_COLOR_PALETTE.get(geo_id, GEO_COLOR_PALETTE.get(geo_name, color_palette.get(ind_id, color_palette.get(name_spanish, "#7f7f7f"))))
+        else:
+            color_hex = color_palette.get(ind_id, color_palette.get(name_spanish, color_palette.get("default", "#7f7f7f")))
 
-            plt.plot(
-                group_sorted["datetime"],
-                group_sorted["value"],
-                color=color_hex,
-                linewidth=2,
-                label=legend_label,
-            )
+        plt.plot(
+            group_sorted["datetime"],
+            group_sorted["value"],
+            color=color_hex,
+            linewidth=2,
+            label=legend_label,
+        )
 
-    # Format titles and labels
     plt.title(title, fontsize=14, fontweight="bold", pad=15)
     plt.xlabel("Time (HH:MM / Date)", fontsize=11, labelpad=10)
     plt.ylabel(y_label, fontsize=11, labelpad=10)
 
-    # Date formatting for X-axis (Europe/Madrid timezone)
     ax = plt.gca()
     spain_tz = ZoneInfo("Europe/Madrid")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M\n%Y-%m-%d", tz=spain_tz))
 
     plt.gcf().autofmt_xdate()
 
-    # Add legend and optimize layout
     plt.legend(loc="upper right", frameon=True, shadow=True, facecolor="white")
     plt.tight_layout()
 
-    # Save and close plot
     plt.savefig(output_path, dpi=300)
     plt.close()
 
@@ -118,7 +103,7 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str | Path = DEFAULT_OUTPUT
     """Generates a multi-line plot of energy demand (MW) over time.
 
     Args:
-        df (pd.DataFrame): Validated dataset with 'datetime', 'value', 'name', and 'geo_name'.
+        df (pd.DataFrame): Validated dataset with datetime, value, name, and geo_name.
         output_dir (str | Path): Directory where the plot will be saved.
 
     Returns:
@@ -139,7 +124,7 @@ def plot_energy_price(df: pd.DataFrame, output_dir: str | Path = DEFAULT_OUTPUT_
     """Generates a multi-line plot of energy prices (€/MWh) over time.
 
     Args:
-        df (pd.DataFrame): Validated dataset with 'datetime', 'value', 'name', and 'geo_name'.
+        df (pd.DataFrame): Validated dataset with datetime, value, name, and geo_name.
         output_dir (str | Path): Directory where the plot will be saved.
 
     Returns:

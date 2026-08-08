@@ -1,3 +1,5 @@
+"""Automated text report generation module for energy market and demand statistics."""
+
 from datetime import datetime
 from pathlib import Path
 
@@ -18,16 +20,15 @@ def generate_text_report(
     market_volume_stats: dict | None = None,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
 ) -> str:
-    """"Generates a complete text report including demand, prices, models, anomalies,
-    and market economic volume metrics.
+    """"Generates a complete text report including demand, prices, models, anomalies, and market volume.
 
     Args:
-        df (pd.DataFrame): The validated dataset.
+        df (pd.DataFrame): Validated dataset.
         start_dt (datetime | None): Start datetime of analyzed range.
         end_dt (datetime | None): End datetime of analyzed range.
-        demand_stats (dict): Dictionary of demand statistics calculated by the analyzer.
-        price_stats (dict): Dictionary of price statistics calculated by the analyzer.
-        comp_stats (dict | None): Advanced comparison statistics for demands.
+        demand_stats (dict): Dictionary of demand statistics calculated.
+        price_stats (dict): Dictionary of price statistics calculated.
+        comp_stats (dict | None): Advanced comparison statistics.
         anomalies (dict | None): Dictionary of detected anomalies.
         market_volume_stats (dict | None): Dictionary of market volume statistics.
         output_dir (str | Path): Directory where the report will be saved.
@@ -36,7 +37,7 @@ def generate_text_report(
         str: File path of the generated report.
 
     Raises:
-        RuntimeError: If the system fails to write the report file.
+        RuntimeError: If writing the report file fails.
     """
     print("\n📄 Generating automated text report...")
 
@@ -93,14 +94,9 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
 --------------------------------------------------"""
 
     if demand_stats:
-        has_multiple_geos = len(df["geo_name"].unique()) > 1
         for series_label, metrics in demand_stats.items():
-            base_name = series_label.split(" (")[0]
-            geo_name = metrics.get("geo_name", "")
-            title = translate_indicator(base_name, geo_name=geo_name, show_geo=has_multiple_geos).upper()
-
             report_content += f"""
---- {title} ---
+--- {str(series_label).upper()} ---
 - Maximum Demand:  {metrics['max']:.2f} MW (At: {metrics['peak_time']})
 - Minimum Demand:  {metrics['min']:.2f} MW
 - Mean (Average):  {metrics['mean']:.2f} MW
@@ -116,14 +112,9 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
 --------------------------------------------------"""
 
     if price_stats:
-        has_multiple_geos = len(df["geo_name"].unique()) > 1
         for series_label, metrics in price_stats.items():
-            base_name = series_label.split(" (")[0]
-            geo_name = metrics.get("geo_name", "")
-            title = translate_indicator(base_name, geo_name=geo_name, show_geo=has_multiple_geos).upper()
-
             report_content += f"""
---- {title} ---
+--- {str(series_label).upper()} ---
 - Maximum Price:    {metrics['max']:.2f} €/MWh (At: {metrics['max_time']})
 - Minimum Price:    {metrics['min']:.2f} €/MWh (At: {metrics['min_time']})
 - Daily Spread:     {metrics['spread']:.2f} €/MWh (Max - Min Swing)
@@ -134,8 +125,11 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
 
     # Advanced Model Comparison Section
     if comp_stats:
-        model_a_en = translate_indicator(comp_stats["model_a"])
-        model_b_en = translate_indicator(comp_stats["model_b"])
+        model_a = comp_stats.get("model_a")
+        model_b = comp_stats.get("model_b")
+
+        model_a_en = translate_indicator(indicator_id=model_a) if isinstance(model_a, int) else str(model_a)
+        model_b_en = translate_indicator(indicator_id=model_b) if isinstance(model_b, int) else str(model_b)
 
         report_content += f"""
 --------------------------------------------------
@@ -158,27 +152,15 @@ Compared Target     (Model B): {model_b_en}
 5. STATISTICAL ANOMALY DETECTION (Z-SCORE > 2.0)
 --------------------------------------------------"""
     has_printed_anomalies = False
-    if anomalies and demand_stats:
-        has_multiple_geos = len(df["geo_name"].unique()) > 1
+    if anomalies and isinstance(anomalies, dict):
+        for series_label, issues in anomalies.items():
+            if issues:
+                has_printed_anomalies = True
 
-        for demand_key in demand_stats.keys():
-            base_demand_name = demand_key.split(" (")[0]
-
-            for series_label, issues in anomalies.items():
-                if series_label.startswith(base_demand_name) and issues:
-                    has_printed_anomalies = True
-
-                    base_name = series_label.split(" (")[0]
-                    raw_geo = ""
-                    if "(" in series_label and ")" in series_label:
-                        raw_geo = series_label.split("(")[1].split(")")[0]
-
-                    title = translate_indicator(base_name, geo_name=raw_geo, show_geo=has_multiple_geos).upper()
-
-                    report_content += f"\n• {title}:"
-                    for issue in issues:
-                        report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {issue['value']:.2f} MW (Deviation: {issue['deviation']:.2f} MW)"
-                    report_content += "\n"
+                report_content += f"\n• {str(series_label).upper()}:"
+                for issue in issues:
+                    report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {issue['value']:.2f} MW (Deviation: {issue['deviation']:.2f} MW)"
+                report_content += "\n"
 
     if not has_printed_anomalies:
         report_content += "\n- No statistical anomalies detected in energy demand data.\n"
@@ -225,4 +207,4 @@ Report successfully generated by Data Pipeline.
         print(f"✅ Report successfully saved to: '{output_path}'")
         return str(output_path)
     except OSError as e:
-        raise RuntimeError(f"Failed to write the report file: {e}")
+        raise RuntimeError(f"Failed to write report file: {e}")

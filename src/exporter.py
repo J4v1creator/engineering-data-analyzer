@@ -1,3 +1,5 @@
+"""Excel workbook export module using Pandas and OpenPyXL for multi-sheet reporting."""
+
 from datetime import datetime
 from pathlib import Path
 
@@ -16,13 +18,18 @@ def _apply_workbook_styles(file_path: Path) -> None:
 
     Args:
         file_path (Path): Path to the generated Excel workbook.
+
+    Raises:
+        Exception: If the workbook cannot be loaded or saved.
     """
+    try:
+        wb = load_workbook(file_path)
+    except Exception as e:
+        print(f"⚠️ Could not load workbook for styling: {e}")
+        return
 
-    wb = load_workbook(file_path)
-
-    # Define common styles
     header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
-    header_font = Font(name="Calibri", size=11, bold = True, color="FFFFFF")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
     thin_border = Border(
         left=Side(style="thin", color="D3D3D3"),
         right=Side(style="thin", color="D3D3D3"),
@@ -30,36 +37,36 @@ def _apply_workbook_styles(file_path: Path) -> None:
         bottom=Side(style="thin", color="D3D3D3"),
     )
     align_center = Alignment(horizontal="center", vertical="center")
-    align_left = Alignment(horizontal="left", vertical="center")
+
+    header_keywords = {
+        "Metric",
+        "Market Indicator",
+        "Indicator",
+        "Indicator Name",
+        "Baseline Series",
+        "Timestamp",
+        "Datetime",
+        "indicator_id",
+        "id",
+    }
 
     for sheet in wb.worksheets:
-        # Enable grid lines explicitly
         sheet.views.sheetView[0].showGridLines = True
 
         for row in sheet.iter_rows():
             for cell in row:
                 if cell.value is not None:
-                    # Apply light borders to all populated cells
                     cell.border = thin_border
 
-                    # Check if row is a header row (openpyxl detects headers by bold/fill logic or first row of tables)
-                    # Headers in our generated sheets match specific title strings or row 1/startrows
-                    if isinstance(cell.value, str) and (
-                        cell.row == 1
-                        or cell.value
-                        in [
-                            "Metric",
-                            "Market Indicator",
-                            "Indicator",
-                            "Indicator Name",
-                            "Baseline Series",
-                            "Timestamp",
-                            "Datetime",
-                        ]
-                    ):
+                    # Header Detection Logic
+                    if isinstance(cell.value, str) and (cell.row == 1 or cell.value in header_keywords):
                         cell.fill = header_fill
                         cell.font = header_font
                         cell.alignment = align_center
+
+                    # Number Formatting for Floats
+                    elif isinstance(cell.value, float):
+                        cell.number_format = "#,##0.00"
 
         # Auto-fit Column Widths dynamically
         for col in sheet.columns:
@@ -68,16 +75,17 @@ def _apply_workbook_styles(file_path: Path) -> None:
 
             for cell in col:
                 if cell.value is not None:
-                    # Limit long strings in 'Clean Data' to avoid ridiculously wide columns
                     cell_len = len(str(cell.value))
                     if cell_len > max_len:
                         max_len = cell_len
 
-            # Set padding width (min width 12, max width 50 for readability)
             adjusted_width = min(max(max_len + 3, 12), 50)
             sheet.column_dimensions[col_letter].width = adjusted_width
 
-    wb.save(file_path)
+    try:
+        wb.save(file_path)
+    except Exception as e:
+        print(f"⚠️ Could not save styled workbook: {e}")
 
 
 def export_to_excel(
@@ -95,13 +103,14 @@ def export_to_excel(
         df (pd.DataFrame): Cleaned and validated energy market data.
         demand_stats (dict): Statistics for demand analysis.
         price_stats (dict): Statistics for price analysis.
-        comp_stats (dict): Statistics for competitive analysis.
+        comp_stats (dict): Statistics for comparative analysis.
         anomalies (dict): Information about detected anomalies.
         market_volume_stats (dict): Statistics for market volume analysis.
 
     Returns:
         str: Absolute or relative file path to the generated .xlsx file.
     """
+    print("\n📊 Generating Excel workbook...")
     # Ensure output directory exists
     out_dir_path = Path(DEFAULT_OUTPUT_DIR)
     out_dir_path.mkdir(parents=True, exist_ok=True)
@@ -125,7 +134,8 @@ def export_to_excel(
         # ==========================================
         # TAB 1: EXECUTIVE SUMMARY
         # ==========================================
-        # Metadata block
+
+        # 1.1 Metadata Block
         meta_data = {
             "Metric": [
                 "Analysis Period Start",
@@ -141,7 +151,7 @@ def export_to_excel(
         df_meta = pd.DataFrame(meta_data)
         df_meta.to_excel(writer, sheet_name="Executive Summary", startrow=1, index=False)
 
-        # Market Volume Block
+        # 1.2 Market Volume Block
         if market_volume_stats:
             volume_data = {
                 "Market Indicator": [
@@ -154,8 +164,7 @@ def export_to_excel(
                     "Peak Hour SPOT Price (€/MWh)",
                 ],
                 "Value": [
-                    market_volume_stats.get("total_volume_eur", 0.0)
-                    / 1_000_000,
+                    market_volume_stats.get("total_volume_eur", 0.0) / 1_000_000,
                     market_volume_stats.get("total_energy_mwh", 0.0) / 1_000,
                     market_volume_stats.get("weighted_avg_price", 0.0),
                     str(market_volume_stats.get("peak_spend_hour", "N/A")),
@@ -167,20 +176,14 @@ def export_to_excel(
             df_volume = pd.DataFrame(volume_data)
             df_volume.to_excel(writer, sheet_name="Executive Summary", startrow=6, index=False)
 
-        # Quick Indicators Overview Block
+        # 1.3 Quick Indicators Overview Block
         summary_rows = []
 
-        has_multiple_geos = False
-        if "geo_name" in df.columns and not df["geo_name"].empty:
-            has_multiple_geos = df["geo_name"].nunique(dropna=True) > 1
-
-        for name, stats in demand_stats.items():
-            base_name = name.split(" (")[0]
-            geo_name = stats.get("geo_name", "")
-            translated_name = translate_indicator(name)
+        # Demand Series
+        for series_label, stats in demand_stats.items():
             summary_rows.append(
                 {
-                    "Indicator": translated_name,
+                    "Indicator": series_label,
                     "Type": "Demand",
                     "Mean": stats.get("mean"),
                     "Max": stats.get("max"),
@@ -188,19 +191,18 @@ def export_to_excel(
                 }
             )
 
+        # Price Series
         for series_label, stats in price_stats.items():
-            base_name = series_label.split(" (")[0]
-            geo_name = stats.get("geo_name", "")
-            translated_name = translate_indicator(base_name, geo_name=geo_name, show_geo=has_multiple_geos)
             summary_rows.append(
                 {
-                    "Indicator": translated_name,
+                    "Indicator": series_label,
                     "Type": "Price",
-                    "Mean": stats.get("mean"),
+                    "Mean": stats.get("mean", None),
                     "Max": stats.get("max"),
                     "Min": stats.get("min"),
                 }
             )
+
         if summary_rows:
             df_summary = pd.DataFrame(summary_rows)
             df_summary.to_excel(writer, sheet_name="Executive Summary", startrow=16, index=False)
@@ -208,146 +210,122 @@ def export_to_excel(
         # ==========================================
         # TAB 2: STATISTICAL ANALYSIS
         # ==========================================
-        # 1. Demand Statistics Table
-        demand_rows = []
-        for name, stats in demand_stats.items():
-            translated_name = translate_indicator(name)
-            demand_rows.append(
-                {
-                    "Indicator Name": translated_name,
-                    "Mean (MW)": stats.get("mean"),
-                    "Median (MW)": stats.get("median"),
-                    "Std Dev (MW)": stats.get("std"),
-                    "Max Value (MW)": stats.get("max"),
-                    "Max Timestamp": str(stats.get("max_time", "N/A")),
-                    "Min Value (MW)": stats.get("min"),
-                }
-            )
 
-        df_demand_sheet = (
-            pd.DataFrame(demand_rows)
-            if demand_rows
-            else pd.DataFrame(
-                columns=[
-                    "Indicator Name",
-                    "Mean (MW)",
-                    "Median (MW)",
-                    "Std Dev (MW)",
-                    "Max Value (MW)",
-                    "Max Timestamp",
-                    "Min Value (MW)",
-                ]
-            )
-        )
-
+        # 2.1 Demand Statistics Table
+        demand_cols = [
+            "Indicator Name",
+            "Mean (MW)",
+            "Median (MW)",
+            "Std Dev (MW)",
+            "Max Value (MW)",
+            "Max Timestamp",
+            "Min Value (MW)",
+        ]
+        demand_rows = [
+            {
+                "Indicator Name": series_label,
+                "Mean (MW)": stats.get("mean"),
+                "Median (MW)": stats.get("median"),
+                "Std Dev (MW)": stats.get("std_dev"),
+                "Max Value (MW)": stats.get("max"),
+                "Max Timestamp": str(stats.get("peak_time", "N/A")),
+                "Min Value (MW)": stats.get("min"),
+            }
+            for series_label, stats in demand_stats.items()
+        ]
+        df_demand_sheet = pd.DataFrame(demand_rows, columns=demand_cols)
         df_demand_sheet.to_excel(writer, sheet_name="Statistical Analysis", startrow=1, index=False)
 
-        # 2. Price Statistics Table (placed below Demand Table)
-        price_rows = []
-        for series_label, stats in price_stats.items():
-            base_name = series_label.split(" (")[0]
-            geo_name = stats.get("geo_name", "")
-            translated_name = translate_indicator(base_name, geo_name=geo_name, show_geo=has_multiple_geos)
-            price_rows.append(
-                {
-                    "Indicator Name": translated_name,
-                    "Max (€/MWh)": stats.get("max"),
-                    "Max Timestamp": str(stats.get("max_time", "N/A")),
-                    "Min (€/MWh)": stats.get("min"),
-                    "Min Timestamp": str(stats.get("min_time", "N/A")),
-                    "Spread (€/MWh)": stats.get("spread"),
-                    "Low Price Hours (<=5€)": stats.get("zero_low_hours"),
-                }
-            )
+        # 2.2 Price Statistics Table (placed below Demand Table with padding)
+        price_cols = [
+            "Indicator Name",
+            "Max (€/MWh)",
+            "Max Timestamp",
+            "Min (€/MWh)",
+            "Min Timestamp",
+            "Spread (€/MWh)",
+            "Low Price Hours (<=5€)",
+        ]
+        price_rows = [
+            {
+                "Indicator Name": series_label,
+                "Max (€/MWh)": stats.get("max"),
+                "Max Timestamp": str(stats.get("max_time", "N/A")),
+                "Min (€/MWh)": stats.get("min"),
+                "Min Timestamp": str(stats.get("min_time", "N/A")),
+                "Spread (€/MWh)": stats.get("spread"),
+                "Low Price Hours (<=5€)": stats.get("zero_low_price_hours"),
+            }
+            for series_label, stats in price_stats.items()
+        ]
+        df_price_sheet = pd.DataFrame(price_rows, columns=price_cols)
 
-        df_price_sheet = (
-            pd.DataFrame(price_rows)
-            if price_rows
-            else pd.DataFrame(
-                columns=[
-                    "Indicator Name",
-                    "Max (€/MWh)",
-                    "Max Timestamp",
-                    "Min (€/MWh)",
-                    "Min Timestamp",
-                    "Spread (€/MWh)",
-                    "Low Price Hours (<=5€)",
-                ]
-            )
-        )
-
-        # Start row dynamically based on the length of demand table + padding
+        # Dynamic start row based on Demand Table height + padding space
         start_row_price = len(df_demand_sheet) + 4
         df_price_sheet.to_excel(writer, sheet_name="Statistical Analysis", startrow=start_row_price, index=False)
 
         # ==========================================
         # TAB 3: MODELS & ANOMALIES
         # ==========================================
-        # 1. Model Comparison Metrics
+
+        # 3.1 Model Comparison Metrics
+        comp_cols = [
+            "Baseline Series",
+            "Target Series",
+            "MAPE (%)",
+            "Pearson Correlation (r)",
+            "Mean Difference (MW)",
+            "Max Difference (MW)",
+            "Max Difference Timestamp",
+        ]
         comp_rows = []
         if comp_stats:
+            model_a_id = comp_stats.get("model_a")
+            model_b_id = comp_stats.get("model_b")
+
+            model_a_name = translate_indicator(indicator_id=model_a_id) if isinstance(model_a_id, int) else str(model_a_id)
+            model_b_name = translate_indicator(indicator_id=model_b_id) if isinstance(model_b_id, int) else str(model_b_id)
+
             comp_rows.append(
                 {
-                    "Baseline Series": translate_indicator(comp_stats.get("series_1", "")),
-                    "Target Series": translate_indicator(comp_stats.get("series_2", "")),
+                    "Baseline Series": model_a_name,
+                    "Target Series": model_b_name,
                     "MAPE (%)": comp_stats.get("mape"),
-                    "Pearson Correlation (r)": comp_stats.get(
-                        "pearson_correlation"
-                    ),
+                    "Pearson Correlation (r)": comp_stats.get("correlation"),
                     "Mean Difference (MW)": comp_stats.get("mean_difference"),
-                    "Max Absolute Delta (MW)": comp_stats.get("max_delta"),
+                    "Max Difference (MW)": comp_stats.get("max_difference_value"),
+                    "Max Difference Timestamp": str(comp_stats.get("max_difference_time", "N/A")),
                 }
             )
 
-        df_comp_sheet = (
-            pd.DataFrame(comp_rows)
-            if comp_rows
-            else pd.DataFrame(
-                columns=[
-                    "Baseline Series",
-                    "Target Series",
-                    "MAPE (%)",
-                    "Pearson Correlation (r)",
-                    "Mean Difference (MW)",
-                    "Max Absolute Delta (MW)",
-                ]
-            )
-        )
-
+        df_comp_sheet = pd.DataFrame(comp_rows, columns=comp_cols)
         df_comp_sheet.to_excel(writer, sheet_name="Models & Anomalies", startrow=1, index=False)
 
-        # 2. Anomalies Table (placed below Model Comparison)
+        # 3.2 Anomalies Table (placed below Model Comparison with padding)
+        anomaly_cols = [
+            "Timestamp",
+            "Indicator",
+            "Observed Value (MW)",
+            "Deviation",
+            "Anomaly Type",
+        ]
         anomaly_rows = []
-        if anomalies and "anomaly_records" in anomalies:
-            for rec in anomalies["anomaly_records"]:
-                anomaly_rows.append(
-                    {
-                        "Timestamp": str(rec.get("datetime")),
-                        "Indicator Name": translate_indicator(rec.get("indicator", "")),
-                        "Observed Value (MW)": rec.get("value"),
-                        "Series Mean (MW)": rec.get("mean"),
-                        "Series Std Dev": rec.get("std"),
-                        "Z-Score": rec.get("z_score"),
-                        "Anomaly Type": rec.get("type"),
-                    }
-                )
+        if anomalies and isinstance(anomalies, dict):
+            for series_label, rec_list in anomalies.items():
+                for rec in rec_list:
+                    anomaly_rows.append(
+                        {
+                            "Timestamp": str(rec.get("datetime")),
+                            "Indicator": series_label,
+                            "Observed Value (MW)": rec.get("value"),
+                            "Deviation": rec.get("deviation"),
+                            "Anomaly Type": rec.get("type"),
+                        }
+                    )
 
-        df_anomaly_sheet = (
-            pd.DataFrame(anomaly_rows)
-            if anomaly_rows
-            else pd.DataFrame(
-                columns=[
-                    "Timestamp",
-                    "Indicator Name",
-                    "Observed Value (MW)",
-                    "Series Mean (MW)",
-                    "Series Std Dev",
-                    "Z-Score",
-                    "Anomaly Type",
-                ]
-            )
-        )
+        df_anomaly_sheet = pd.DataFrame(anomaly_rows, columns=anomaly_cols)
 
+        # Dynamic start row based on Model Comparison Table height + padding space
         start_row_anom = len(df_comp_sheet) + 4
         df_anomaly_sheet.to_excel(writer, sheet_name="Models & Anomalies", startrow=start_row_anom, index=False)
 
@@ -355,12 +333,27 @@ def export_to_excel(
         # TAB 4: CLEAN DATA
         # ==========================================
         df_clean = df.copy()
-        df_clean["datetime"] = df_clean["datetime"].astype(str)
-        df_clean.to_excel(writer, sheet_name="Clean Data", index=False)
 
-        pass
+        # 1. Format datetime to standard ISO readable string
+        if "datetime" in df_clean.columns:
+            df_clean["datetime"] = pd.to_datetime(df_clean["datetime"]).dt.strftime("%Y-%m-%d %H:%M:%S")
 
-    # Apply global styles from openpyxl (column widths, colors, formats)
+        # 2. Dynamic column check for ID column
+        id_col = "indicator_id" if "indicator_id" in df_clean.columns else "id"
+
+        # 3. Translate indicator name cleanly
+        if id_col in df_clean.columns:
+            df_clean["name"] = df_clean[id_col].map(lambda x: translate_indicator(indicator_id=x))
+
+        # 4. Select and reorder desired columns for the raw data export
+        cols_to_keep = [id_col, "name", "geo_id", "geo_name", "datetime", "value"]
+        df_export = df_clean[[col for col in cols_to_keep if col in df_clean.columns]]
+
+        # 5. Export to Excel sheet
+        df_export.to_excel(writer, sheet_name="Clean Data", index=False)
+
+    # Apply global openpyxl styles (headers, fonts, fills, alignments, auto-width)
     _apply_workbook_styles(file_path)
 
+    print(f"✅ Excel report successfully exported to: '{file_path}'")
     return str(file_path)
