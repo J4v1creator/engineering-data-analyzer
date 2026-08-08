@@ -1,7 +1,9 @@
+"""SQLite database connection managers, schema initialization, and query operations."""
+
 from datetime import datetime
 from pathlib import Path
-
 import sqlite3
+
 import pandas as pd
 
 from config.settings import DEFAULT_DB_PATH
@@ -15,7 +17,7 @@ def get_connection(db_path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
         db_path (str | Path): Path to the SQLite database file.
 
     Returns:
-        sqlite3.Connection: A connection object to the SQLite database.
+        sqlite3.Connection: Active SQLite database connection object.
     """
     path_obj = Path(db_path)
     path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -50,25 +52,25 @@ def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> None:
                 )
             """)
 
-            # Composite index for optimized query performance
+            # Composite index for optimized query performance across time ranges
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_records_name_geo_datetime 
-                ON esios_records (name, geo_id, datetime);
+                CREATE INDEX IF NOT EXISTS idx_records_indicator_geo_datetime 
+                ON esios_records (indicator_id, geo_id, datetime);
             """)
 
             conn.commit()
         print("✅ [DATABASE] Database schema initialized successfully.")
 
     except sqlite3.Error as e:
-        print(f"\n❌ Database Error: An issue occurred with SQLite storage.\n{e}")
+        print(f"\n❌ [DATABASE ERROR] Failed to initialize SQLite storage:\n{e}")
 
 
 def save_dataframe(df: pd.DataFrame, db_path: str | Path = DEFAULT_DB_PATH) -> int:
     """Saves a pandas DataFrame into the SQLite database.
-    Uses INSERT OR IGNORE to automatically bypass duplicate entries for (indicator_id, datetime, geo_id).
+    Bypasses duplicate entries using INSERT OR IGNORE on composite keys.
 
     Args:
-        df (pd.DataFrame): DataFrame containing ESIOS records with required columns.
+        df (pd.DataFrame): DataFrame containing ESIOS records.
         db_path (str | Path): Path to the SQLite database file.
 
     Returns:
@@ -77,16 +79,19 @@ def save_dataframe(df: pd.DataFrame, db_path: str | Path = DEFAULT_DB_PATH) -> i
     if df.empty:
         return 0
 
-    init_db(db_path)  # Ensures table exists before writing
+    init_db(db_path)  # Ensures table schema exists before writing
 
-    # Prepare DataFrame records for bulk insertion
     df_to_save = df.copy()
 
-    # Ensure datetime column is converted to string ISO format for SQLite storage
+    # Ensure datetime column is converted to ISO string format for SQLite string comparison
     if pd.api.types.is_datetime64_any_dtype(df_to_save["datetime"]):
         df_to_save["datetime"] = df_to_save["datetime"].dt.strftime("%Y-%m-%dT%H:%M:%S%z")
 
-    records = df_to_save[["id", "name", "geo_id", "geo_name", "value", "datetime"]].values.tolist()
+    # Flexible mapping fallback if column is named 'id' instead of 'indicator_id'
+    if "indicator_id" not in df_to_save.columns and "id" in df_to_save.columns:
+        df_to_save["indicator_id"] = df_to_save["id"]
+
+    records = df_to_save[["indicator_id", "name", "geo_id", "geo_name", "value", "datetime"]].values.tolist()
 
     insert_query = """
         INSERT OR IGNORE INTO esios_records (indicator_id, name, geo_id, geo_name, value, datetime)
@@ -104,48 +109,48 @@ def save_dataframe(df: pd.DataFrame, db_path: str | Path = DEFAULT_DB_PATH) -> i
     return inserted_count
 
 
-def load_data_by_names(
-    names: list[str],
+def load_data_by_ids(
+    indicator_ids: list[int],
     start_iso: str | datetime,
     end_iso: str | datetime,
     geo_ids: list[int] | None = None,
     db_path: str | Path = DEFAULT_DB_PATH,
 ) -> pd.DataFrame:
-    """Loads ESIOS records from SQLite matching selected names, optional geography IDs, and time range.
+    """Loads ESIOS records from SQLite matching selected IDs, optional geography IDs, and time range.
 
     Args:
-        names (list[str]): List of indicator names to filter.
-        start_iso (str | datetime): Start datetime in ISO format or datetime object.
-        end_iso (str | datetime): End datetime in ISO format or datetime object.
+        indicator_ids (list[int]): List of indicator IDs to filter.
+        start_iso (str | datetime): Start datetime in ISO format string or datetime object.
+        end_iso (str | datetime): End datetime in ISO format string or datetime object.
         geo_ids (list[int] | None): Optional list of geo_id values to filter by region.
         db_path (str | Path): Path to the SQLite database file.
 
     Returns:
         pd.DataFrame: Retrieved data formatted identically to API payload dataframes.
     """
-    if not names:
+    if not indicator_ids:
         return pd.DataFrame()
 
     init_db(db_path)
 
-    # Ensure start and end datetimes are in ISO format strings
+    # Ensure start and end datetimes are formatted as ISO strings
     if isinstance(start_iso, datetime):
         start_iso = start_iso.isoformat()
     if isinstance(end_iso, datetime):
         end_iso = end_iso.isoformat()
 
-    # Build dynamic SQL query
-    name_placeholders = ", ".join(["?"] * len(names))
+    # Build dynamic SQL query with parameterized values
+    id_placeholders = ", ".join(["?"] * len(indicator_ids))
     query = f"""
-        SELECT indicator_id AS id, name, geo_id, geo_name, value, datetime
+        SELECT indicator_id AS id, indicator_id, name, geo_id, geo_name, value, datetime
         FROM esios_records
-        WHERE name IN ({name_placeholders})
+        WHERE indicator_id IN ({id_placeholders})
             AND datetime >= ?
             AND datetime <= ?
     """
-    params = list(names) + [start_iso, end_iso]
+    params = list(indicator_ids) + [start_iso, end_iso]
 
-    # Optional filtering by geographic IDs
+    # Apply optional filtering by geographic IDs
     if geo_ids:
         geo_placeholders = ", ".join(["?"] * len(geo_ids))
         query += f" AND geo_id IN ({geo_placeholders})"
@@ -157,7 +162,7 @@ def load_data_by_names(
         df = pd.read_sql_query(query, conn, params=params)
 
     if not df.empty:
-        # Convert datetime column back to timezone-aware objects
+        # Convert datetime column back to localized timezone-aware objects
         df["datetime"] = pd.to_datetime(df["datetime"], utc=True).dt.tz_convert("Europe/Madrid")
 
     return df

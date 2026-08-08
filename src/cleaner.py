@@ -1,6 +1,7 @@
+"""Cache maintenance engine and expired DB entry cleaner."""
+
 from pathlib import Path
 import time
-
 import sqlite3
 
 from config.settings import CACHE_EXPIRATION_DAYS, DEFAULT_DB_PATH, DEFAULT_OUTPUT_DIR
@@ -24,12 +25,10 @@ def _clean_directory(target_dir: str | Path, expiration_days: int) -> int:
         return 0
 
     now = time.time()
-    # Convert expiration days into seconds
     expiration_seconds = expiration_days * 24 * 60 * 60
     deleted_count = 0
 
     for file_item in target_path.iterdir():
-        # Skip subdirectories if present
         if not file_item.is_file():
             continue
 
@@ -69,7 +68,6 @@ def _clean_expired_database_records(db_path: str | Path, expiration_days: int) -
         with get_connection(db_file) as conn:
             cursor = conn.cursor()
 
-            # Ensure execution against unified esios_records table
             query = """
                 DELETE FROM esios_records
                 WHERE julianday(datetime) < julianday('now', ? || ' days');
