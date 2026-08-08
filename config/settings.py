@@ -1,24 +1,25 @@
+"""Centralized configuration, dynamic pathlib resolution, and constants."""
 from pathlib import Path
 
-# Base storage directory paths (resolved dynamically relative to project root)
+
+# --- Base Storage Directories ---
+# Resolved dynamically relative to the project root
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
-DEFAULT_OUTPUT_DIR = str(BASE_DIR / "outputs")
-DEFAULT_DB_PATH = str(DATA_DIR / "esios_cache.db")
+DEFAULT_OUTPUT_DIR = BASE_DIR / "outputs"
+DEFAULT_DB_PATH = DATA_DIR / "esios_cache.db"
 
 # Ensure required storage directories exist at application runtime
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-Path(DEFAULT_OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
+DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Analysis configuration
-DEFAULT_ANOMALY_THRESHOLD = 2.0
+# --- Analysis Parameters ---
+DEFAULT_ANOMALY_THRESHOLD = 2.0  # Standard deviation threshold for Z-score
+CACHE_EXPIRATION_DAYS = 7        # Cache retention period
 
-# Cache expiration limit in days
-CACHE_EXPIRATION_DAYS = 7
-
-# Expected data schema for strict type validation
+# --- Data Validation Schema ---
 EXPECTED_COLUMNS = {
-    "id": "int64",
+    "indicator_id": "int64",
     "name": "object",
     "geo_id": "int64",
     "geo_name": "object",
@@ -26,86 +27,78 @@ EXPECTED_COLUMNS = {
     "datetime": "datetime64[ns, Europe/Madrid]",
 }
 
-# E·sios API Indicators Mapping
-ESIOS_INDICATORS = {
-    "Demanda real": 1293,
-    "Demanda prevista": 544,
-    "Demanda programada": 545,
-    "Demanda Programada Total Peninsular": 1941,
-    "Término de facturación de energía activa del PVPC 2.0TD": 1001,
-    "Precio mercado SPOT Diario": 600,
+# --- Indicator Ordering & Priorities ---
+# The order defined in these lists dictates display priority across UI, plots, and exports.
+DEMAND_INDICATOR_IDS = [
+    1293,  # Real Demand
+    544,   # Expected Demand
+    545,   # Scheduled Demand
+    1941,  # Total Scheduled Demand
+]
+
+PRICE_INDICATOR_IDS = [
+    600,   # Spot Market Price
+    1001,  # PVPC Retail Energy Price
+]
+
+# --- Translations (ESIOS Numerical IDs to English Standards) ---
+INDICATOR_TRANSLATIONS = {
+    1293: "Real Demand",
+    544: "Expected Demand",
+    545: "Scheduled Demand",
+    1941: "Total Scheduled Demand",
+    600: "Spot Market Price",
+    1001: "PVPC Retail Energy Price",
 }
 
-# Recognized geographic region identifiers for ESIOS API datasets
-GEOGRAPHY_MAPPINGS = {
+GEOGRAPHY_TRANSLATIONS = {
+    # Spot Market Regions
     1: "Portugal",
-    2: "Francia",
-    3: "España",
-    8741: "Península",
-    8742: "Canarias",
-    8743: "Baleares",
+    2: "France",
+    3: "Spain",
+    8826: "Germany",
+    8827: "Belgium",
+    8828: "Netherlands",
+    # PVPC Regions
+    8741: "Peninsula",
+    8742: "Canary Islands",
+    8743: "Balearic Islands",
     8744: "Ceuta",
     8745: "Melilla",
-    8826: "Alemania",
-    8827: "Bélgica",
-    8828: "Países Bajos",
 }
 
-# Translation mapping for Red Eléctrica de España (REE) demand names
-DEMAND_TRANSLATIONS = {
-    "Demanda real": "Real Demand",
-    "Demanda prevista": "Expected Demand",
-    "Demanda programada": "Scheduled Demand",
-    "Demanda Programada Total Peninsular": "Total Scheduled Demand",
-}
-
-# Translation mapping for Red Eléctrica de España (REE) price names
-PRICE_TRANSLATIONS = {
-    "Término de facturación de energía activa del PVPC 2.0TD": "PVPC Retail Energy Price",
-    "Precio mercado SPOT Diario": "Spot Market Price",
-}
-
-# Translation mapping for geographic region names
-GEOGRAPHY_TRANSLATIONS = {
-    "Portugal": "Portugal",
-    "Francia": "France",
-    "España": "Spain",
-    "Península": "Peninsula",
-    "Canarias": "Canary Islands",
-    "Baleares": "Balearic Islands",
-    "Ceuta": "Ceuta",
-    "Melilla": "Melilla",
-    "Alemania": "Germany",
-    "Bélgica": "Belgium",
-    "Países Bajos": "Netherlands",
-}
-
-# UI/UX Plotting configurations
+# --- Visualizer / Plotting Styling Configurations ---
 DEMAND_COLOR_PALETTE = {
-    "Demanda real": "#1f77b4",
-    "Demanda prevista": "#ff7f0e",
-    "Demanda programada": "#2ca02c",
-    "Demanda Programada Total Peninsular": "#d62728",
+    1293: "#1f77b4",  # Blue (Real)
+    544: "#ff7f0e",   # Orange (Expected)
+    545: "#2ca02c",   # Green (Scheduled)
+    1941: "#d62728",  # Red (Total Scheduled)
     "default": "#7f7f7f",
 }
 
-# Geographic region color palette for multi-region plots (e.g., Spot Market Prices)
+# Line style mapping to differentiate Real Demand (solid) from Forecasts/Schedules (dashed)
+DEMAND_LINE_STYLES = {
+    1293: "-",   # Solid line
+    544: "--",   # Dashed
+    545: "--",   # Dashed
+    1941: "-.",  # Dash-dot
+    "default": "-",
+}
+
 GEO_COLOR_PALETTE = {
-    # --- Spot Market Price ---
-    "Portugal": "#1f77b4",
-    "Francia": "#ff7f0e",
-    "España": "#2ca02c",
-    "Alemania": "#d62728",
-    "Bélgica": "#9467bd",
-    "Países Bajos": "#17becf",
-
-    # --- PVPC Retail Energy Price ---
-    "Península": "#0e4d64",
-    "Canarias": "#e377c2",
-    "Baleares": "#bcbd22",
-    "Ceuta": "#8c564b",
-    "Melilla": "#ffbb78",
-
-    # --- Fallback ---
+    # Spot Market
+    1: "#1f77b4",     # Portugal
+    2: "#ff7f0e",     # France
+    3: "#2ca02c",     # Spain
+    8826: "#d62728",  # Germany
+    8827: "#9467bd",  # Belgium
+    8828: "#17becf",  # Netherlands
+    # PVPC Regions
+    8741: "#0e4d64",  # Peninsula
+    8742: "#e377c2",  # Canary Islands
+    8743: "#bcbd22",  # Balearic Islands
+    8744: "#8c564b",  # Ceuta
+    8745: "#ffbb78",  # Melilla
+    # Fallback
     "default": "#7f7f7f",
 }
