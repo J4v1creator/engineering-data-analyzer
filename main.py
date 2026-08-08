@@ -1,9 +1,23 @@
+"""Main entry point and orchestrator for the energy demand and market price analysis pipeline."""
+
 import sys
 
-from config.settings import DEMAND_TRANSLATIONS, PRICE_TRANSLATIONS
-from src.analyzer import calculate_demand_statistics, calculate_market_economic_volume, calculate_price_statistics, compare_demand_models, detect_demand_anomalies
+from config.settings import DEMAND_INDICATOR_IDS, PRICE_INDICATOR_IDS
+from src.analyzer import (
+    calculate_demand_statistics,
+    calculate_market_economic_volume,
+    calculate_price_statistics,
+    compare_demand_models,
+    detect_demand_anomalies,
+)
 from src.cleaner import clean_expired_cache
-from src.cli import ask_comparison_targets, display_anomalies_summary, display_market_volume_summary, get_user_datetime_filter, get_user_indicator_selection
+from src.cli import (
+    ask_comparison_targets,
+    display_anomalies_summary,
+    display_market_volume_summary,
+    get_user_datetime_filter,
+    get_user_indicator_selection,
+)
 from src.database import init_db
 from src.esios_client import get_energy_data
 from src.exporter import export_to_excel
@@ -34,10 +48,10 @@ def main() -> None:
         start_dt, end_dt = get_user_datetime_filter()
 
         # Input: Retrieve available demand and price keys directly from settings
-        available_demands = list(DEMAND_TRANSLATIONS.keys())
-        available_prices = list(PRICE_TRANSLATIONS.keys())
+        available_demands = DEMAND_INDICATOR_IDS
+        available_prices = PRICE_INDICATOR_IDS
 
-        # Input: Prompt user for demand and price selections
+        # Input: Prompt user for indicator selections (IDs)
         selected_demands, selected_prices = get_user_indicator_selection(available_demands, available_prices)
 
         # Consolidate all user selection choices for data retrieval
@@ -53,22 +67,25 @@ def main() -> None:
         # Validate: Enforce structural constraints and quality checks
         validate_dataset(df_filtered)
 
-        # Separate DataFrames by metric type
-        df_demands = df_filtered[df_filtered["name"].isin(selected_demands)]
-        df_prices = df_filtered[df_filtered["name"].isin(selected_prices)]
+        # Dynamic check for ID column
+        id_col = "indicator_id" if "indicator_id" in df_filtered.columns else "id"
+
+        # Separate DataFrames using indicator IDs
+        df_demands = df_filtered[df_filtered[id_col].isin(selected_demands)]
+        df_prices = df_filtered[df_filtered[id_col].isin(selected_prices)]
 
         # Process: Establish target baselines and pairwise comparison groups
         comparison_targets = None
 
         if len(selected_demands) == 2:
             comparison_targets = (selected_demands[0], selected_demands[1])
-            print(f"\n🧠 Automatically selecting '{selected_demands[0]}' and '{selected_demands[1]}' for comparison.")
+            print(f"\n🧠 Automatically selecting indicators [{selected_demands[0]}] and [{selected_demands[1]}] for comparison.")
         elif len(selected_demands) > 2:
-            comparison_targets = ask_comparison_targets(available_demands, selected_demands)
+            comparison_targets = ask_comparison_targets(selected_demands)
 
         # Analyze: Execute specialized mathematical metrics per dataset type
         demand_stats = calculate_demand_statistics(df_demands, selected_demands)
-        price_stats = calculate_price_statistics(df_prices)
+        price_stats = calculate_price_statistics(df_prices, selected_prices)
         comp_stats = compare_demand_models(df_filtered, comparison_targets)
         anomalies = detect_demand_anomalies(df_filtered)
         market_volume_stats = calculate_market_economic_volume(df_filtered)
