@@ -22,9 +22,8 @@ def calculate_demand_statistics(df_demands: pd.DataFrame, selected_demands: list
     print("\n🔍 Calculating power demand statistics...")
     
     # Identify ID column dynamically and filter by selected demand IDs
-    id_col = "indicator_id" if "indicator_id" in df_demands.columns else "id"
     if selected_demands:
-        df_demands = df_demands[df_demands[id_col].isin(selected_demands)]
+        df_demands = df_demands[df_demands["indicator_id"].isin(selected_demands)]
 
     if df_demands.empty:
         return {}
@@ -32,7 +31,7 @@ def calculate_demand_statistics(df_demands: pd.DataFrame, selected_demands: list
     has_multiple_geos = df_demands["geo_id"].nunique() > 1
     stats = {}
 
-    for (ind_id, geo_id), group in df_demands.groupby([id_col, "geo_id"], sort=False):
+    for (ind_id, geo_id), group in df_demands.groupby(["indicator_id", "geo_id"], sort=False):
         values = group["value"]
         max_row = group.loc[values.idxmax()]
         
@@ -70,13 +69,12 @@ def calculate_price_statistics(df_prices: pd.DataFrame, selected_prices: list[in
         return stats
 
     print("\n🔍 Calculating energy price statistics...")
-    id_col = "indicator_id" if "indicator_id" in df_prices.columns else "id"
 
     if selected_prices:
-        df_prices = df_prices[df_prices[id_col].isin(selected_prices)]
+        df_prices = df_prices[df_prices["indicator_id"].isin(selected_prices)]
 
     has_multiple_geos = df_prices["geo_id"].nunique() > 1
-    for (price_id, geo_id), df_sub in df_prices.groupby([id_col, "geo_id"], sort=False):
+    for (price_id, geo_id), df_sub in df_prices.groupby(["indicator_id", "geo_id"], sort=False):
         if df_sub.empty:
             continue
 
@@ -107,12 +105,12 @@ def calculate_price_statistics(df_prices: pd.DataFrame, selected_prices: list[in
     return stats
 
 
-def compare_demand_models(df: pd.DataFrame, targets: tuple[str, str] | None = None) -> dict[str, str | float | int]:
-    """Performs comparative analysis dynamically between two selected demand series.
+def compare_demand_models(df: pd.DataFrame, targets: tuple[int, int] | list[int, int] | None = None) -> dict[str, str | float | int]:
+    """Performs comparative analysis dynamically between two selected demand series IDs.
 
     Args:
         df (pd.DataFrame): Filtered energy DataFrame.
-        targets (tuple[str, str] | None): Pair of demand series names (model_a, model_b).
+        targets (tuple[int, int] | list[int, int] | None): Pair of demand indicator_ids (id_a, id_b).
 
     Returns:
         dict[str, str | float | int]: Comparative metrics dictionary or empty dict if invalid.
@@ -120,37 +118,36 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple[str, str] | None = No
     if not targets or len(targets) != 2:
         return {}
 
-    model_a, model_b = targets
+    id_a, id_b = targets[0], targets[1]
 
-    # Validate presence of both models in dataset
-    if model_a not in df["name"].values or model_b not in df["name"].values:
-        print(f"⚠️ Advanced comparison skipped: One or both targets ('{model_a}', '{model_b}') are not present.")
+    # Validate presence of both indicator IDs in dataset
+    if id_a not in df["indicator_id"].values or id_b not in df["indicator_id"].values:
+        print(f"⚠️ Advanced comparison skipped: One or both target IDs ({id_a}, {id_b}) are not present.")
         return {}
 
-    id_col = "indicator_id" if "indicator_id" in df.columns else "id"
-    id_a = df[df["name"] == model_a][id_col].iloc[0]
-    id_b = df[df["name"] == model_b][id_col].iloc[0]
-
+    # Translate IDs to user-friendly names for printing/reporting
     model_a_en = translate_indicator(indicator_id=id_a)
     model_b_en = translate_indicator(indicator_id=id_b)
 
     print(f"\n🧠 Running advanced comparative analysis between '{model_a_en}' and '{model_b_en}'...")
 
-    df_work = df.copy()
-    if "series_id" not in df_work.columns:
-        df_work["series_id"] = df_work["name"]
-
-    pivoted_df = df_work.pivot_table(index="datetime", columns="series_id", values="value", aggfunc="first")
+    # Pivot table using indicator_id (guarantees numerical matching)
+    pivoted_df = df.pivot_table(
+        index="datetime", 
+        columns="indicator_id", 
+        values="value", 
+        aggfunc="first"
+    )
 
     rows_before = len(pivoted_df)
-    pivoted_df = pivoted_df.dropna(subset=[model_a, model_b])
+    pivoted_df = pivoted_df.dropna(subset=[id_a, id_b])
     rows_after = len(pivoted_df)
 
     if rows_before != rows_after:
         print(f"ℹ️ {rows_before - rows_after} timestamps excluded due to missing values in target series.")
 
-    series_a = pivoted_df[model_a]
-    series_b = pivoted_df[model_b]
+    series_a = pivoted_df[id_a]
+    series_b = pivoted_df[id_b]
 
     # Error and correlation metrics
     pivoted_df["difference"] = series_a - series_b
@@ -164,8 +161,8 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple[str, str] | None = No
     correlation = float(series_a.corr(series_b))
 
     return {
-        "model_a": model_a_en,
-        "model_b": model_b_en,
+        "model_a": id_a,
+        "model_b": id_b,
         "mean_difference": float(pivoted_df["difference"].mean()),
         "max_difference_value": max_diff_value,
         "max_difference_time": max_diff_time,
@@ -187,9 +184,8 @@ def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY
     print("\n🔍 Scanning for statistical anomalies in dataset series...")
     anomalies_report = {}
     has_multiple_geos = df["geo_id"].nunique() > 1
-    id_col = "indicator_id" if "indicator_id" in df.columns else "id"
 
-    for (ind_id, geo_id), group_df in df.groupby([id_col, "geo_id"]):
+    for (ind_id, geo_id), group_df in df.groupby(["indicator_id", "geo_id"]):
         if len(group_df) < 3:
             continue
 
@@ -231,11 +227,9 @@ def calculate_market_economic_volume(df: pd.DataFrame) -> dict:
     Returns:
         dict: Summary of market volume metrics (total euros, peak spend hour, VWAP).
     """
-    id_col = "indicator_id" if "indicator_id" in df.columns else "id"
-
     # Filter for Real Demand (1293, Peninsula 8741) and Spot Price (600, Spain 3)
-    demand_mask = (df[id_col] == 1293) & (df["geo_id"] == 8741)
-    spot_mask = (df[id_col] == 600) & (df["geo_id"] == 3)
+    demand_mask = (df["indicator_id"] == 1293) & (df["geo_id"] == 8741)
+    spot_mask = (df["indicator_id"] == 600) & (df["geo_id"] == 3)
 
     demand_df = df[demand_mask].copy()
     spot_df = df[spot_mask].copy()

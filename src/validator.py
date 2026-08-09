@@ -75,13 +75,12 @@ def validate_dataset(df: pd.DataFrame) -> bool:
     print("✅ No missing values.")
 
     # # Step 5: Check for duplicate entries based on composite key
-    id_col = "indicator_id" if "indicator_id" in df.columns else "id"
-    composite_key = [id_col, "datetime", "geo_id"]
+    composite_key = ["indicator_id", "datetime", "geo_id"]
     duplicate_count = df.duplicated(subset=composite_key).sum()
     if duplicate_count > 0:
         raise ValueError(f"❌ Validation failed: Found {duplicate_count} duplicate records for key combination {composite_key}.")
 
-    print("✅ No duplicate records for composite key (id, datetime, geo_id).")
+    print("✅ No duplicate records for composite key (indicator_id, datetime, geo_id).")
 
     print("🎉 [SUCCESS] Dataset passed all quality checks!")
     return True

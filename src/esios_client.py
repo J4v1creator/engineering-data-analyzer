@@ -30,17 +30,16 @@ def _is_cache_complete(df_cached: pd.DataFrame, selected_indicators: list[int], 
     if df_cached.empty:
         return False
 
-    id_col = "indicator_id" if "indicator_id" in df_cached.columns else "id"
-    if id_col not in df_cached.columns:
+    if "indicator_id" not in df_cached.columns:
         return False
 
-    cached_ids = set(df_cached[id_col].unique())
+    cached_ids = set(df_cached["indicator_id"].unique())
     if not set(selected_indicators).issubset(cached_ids):
         return False
 
     # Verify temporal coverage for each individual indicator
     for indicator_id in selected_indicators:
-        df_ind = df_cached[df_cached[id_col] == indicator_id]
+        df_ind = df_cached[df_cached["indicator_id"] == indicator_id]
         if df_ind.empty:
             return False
 

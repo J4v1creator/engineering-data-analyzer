@@ -67,12 +67,9 @@ def main() -> None:
         # Validate: Enforce structural constraints and quality checks
         validate_dataset(df_filtered)
 
-        # Dynamic check for ID column
-        id_col = "indicator_id" if "indicator_id" in df_filtered.columns else "id"
-
         # Separate DataFrames using indicator IDs
-        df_demands = df_filtered[df_filtered[id_col].isin(selected_demands)]
-        df_prices = df_filtered[df_filtered[id_col].isin(selected_prices)]
+        df_demands = df_filtered[df_filtered["indicator_id"].isin(selected_demands)]
+        df_prices = df_filtered[df_filtered["indicator_id"].isin(selected_prices)]
 
         # Process: Establish target baselines and pairwise comparison groups
         comparison_targets = None

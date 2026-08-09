@@ -56,9 +56,8 @@ def _plot_time_series(
     plt.style.use("seaborn-v0_8-whitegrid")
 
     has_multiple_geos = df["geo_id"].nunique() > 1
-    id_col = "indicator_id" if "indicator_id" in df.columns else "id"
 
-    for (ind_id, geo_id), group_df in df.groupby([id_col, "geo_id"]):
+    for (ind_id, geo_id), group_df in df.groupby(["indicator_id", "geo_id"]):
         group_sorted = group_df.sort_values("datetime")
 
         legend_label = translate_indicator(indicator_id=ind_id, geo_id=geo_id, show_geo=has_multiple_geos)

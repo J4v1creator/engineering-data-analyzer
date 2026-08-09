@@ -338,18 +338,15 @@ def export_to_excel(
         if "datetime" in df_clean.columns:
             df_clean["datetime"] = pd.to_datetime(df_clean["datetime"]).dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        # 2. Dynamic column check for ID column
-        id_col = "indicator_id" if "indicator_id" in df_clean.columns else "id"
+        # 2. Translate indicator name cleanly
+        if "indicator_id" in df_clean.columns:
+            df_clean["name"] = df_clean["indicator_id"].map(lambda x: translate_indicator(indicator_id=x))
 
-        # 3. Translate indicator name cleanly
-        if id_col in df_clean.columns:
-            df_clean["name"] = df_clean[id_col].map(lambda x: translate_indicator(indicator_id=x))
-
-        # 4. Select and reorder desired columns for the raw data export
-        cols_to_keep = [id_col, "name", "geo_id", "geo_name", "datetime", "value"]
+        # 3. Select and reorder desired columns for the raw data export
+        cols_to_keep = ["indicator_id", "name", "geo_id", "geo_name", "datetime", "value"]
         df_export = df_clean[[col for col in cols_to_keep if col in df_clean.columns]]
 
-        # 5. Export to Excel sheet
+        # 4. Export to Excel sheet
         df_export.to_excel(writer, sheet_name="Clean Data", index=False)
 
     # Apply global openpyxl styles (headers, fonts, fills, alignments, auto-width)
