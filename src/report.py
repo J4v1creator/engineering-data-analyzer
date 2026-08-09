@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from config.settings import DEFAULT_OUTPUT_DIR
-from src.utils import translate_indicator
+from src.utils import format_mw, format_price, translate_indicator
 
 
 def generate_text_report(
@@ -90,18 +90,18 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
 - Selected Range:   [{analysis_period}]
 
 --------------------------------------------------
-2. STATISTICAL SUMMARY (DEMAND IN MW)
+2. STATISTICAL SUMMARY: ENERGY DEMAND (MW)
 --------------------------------------------------"""
 
     if demand_stats:
         for series_label, metrics in demand_stats.items():
             report_content += f"""
 --- {str(series_label).upper()} ---
-- Maximum Demand:  {metrics['max']:.2f} MW (At: {metrics['peak_time']})
-- Minimum Demand:  {metrics['min']:.2f} MW
-- Mean (Average):  {metrics['mean']:.2f} MW
-- Median:          {metrics['median']:.2f} MW
-- Std. Deviation:  {metrics['std_dev']:.2f} MW
+- Maximum Demand:  {format_mw(metrics['max'])} (At: {metrics['peak_time']})
+- Minimum Demand:  {format_mw(metrics['min'])}
+- Mean (Average):  {format_mw(metrics['mean'])}
+- Median:          {format_mw(metrics['median'])}
+- Std. Deviation:  {format_mw(metrics['std_dev'])}
 """
     else:
         report_content += "\n- No demand indicators were selected for this run.\n"
@@ -115,10 +115,10 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
         for series_label, metrics in price_stats.items():
             report_content += f"""
 --- {str(series_label).upper()} ---
-- Maximum Price:    {metrics['max']:.2f} €/MWh (At: {metrics['max_time']})
-- Minimum Price:    {metrics['min']:.2f} €/MWh (At: {metrics['min_time']})
-- Daily Spread:     {metrics['spread']:.2f} €/MWh (Max - Min Swing)
-- Zero/Low Hours:   {metrics['zero_low_price_hours']} hour(s) (<= 5.0 €/MWh)
+- Maximum Price:    {format_price(metrics['max'])} (At: {metrics['max_time']})
+- Minimum Price:    {format_price(metrics['min'])} (At: {metrics['min_time']})
+- Daily Spread:     {format_price(metrics['spread'])} (Max - Min Swing)
+- Zero/Low Hours:   {metrics['zero_low_price_hours']} hour(s) (<= 5.0)
 """
     else:
         report_content += "\n- No price indicators were selected for this run.\n"
@@ -138,10 +138,10 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
 Comparison Baseline (Model A): {model_a_en}
 Compared Target     (Model B): {model_b_en}
 
-- Mean Difference (A - B):      {comp_stats['mean_difference']:.2f} MW
-- Maximum Absolute Deviation:   {abs(comp_stats['max_difference_value']):.2f} MW
+- Mean Difference (A - B):      {format_mw(comp_stats['mean_difference'])}
+- Maximum Absolute Deviation:   {format_mw(abs(comp_stats['max_difference_value']))}
     ↳ Occurred At:                {comp_stats['max_difference_time']}
-    ↳ Directional Error (A - B):   {comp_stats['max_difference_value']:.2f} MW
+    ↳ Directional Error (A - B):   {format_mw(comp_stats['max_difference_value'])}
 - Mean Absolute Pct. Error:     {comp_stats['mape']:.2f}%
 - Pearson Correlation (r):      {comp_stats['correlation']:.4f}
 """
@@ -159,7 +159,7 @@ Compared Target     (Model B): {model_b_en}
 
                 report_content += f"\n• {str(series_label).upper()}:"
                 for issue in issues:
-                    report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {issue['value']:.2f} MW (Deviation: {issue['deviation']:.2f} MW)"
+                    report_content += f"\n  ↳ [{issue['type']}] At {issue['datetime']} -> {format_mw(issue['value'])} (Deviation: {format_mw(issue['deviation'])})"
                 report_content += "\n"
 
     if not has_printed_anomalies:
@@ -183,13 +183,13 @@ Compared Target     (Model B): {model_b_en}
         report_content += f"""
 • Total Electricity Traded Volume : {total_m_eur:.2f} M€
 • Total Energy Demand Processed   : {total_gwh:.2f} GWh
-• Volume-Weighted Avg Price (VWAP): {vwap:.2f} €/MWh
+• Volume-Weighted Avg Price (VWAP): {format_price(vwap)}
 
 • Peak Expenditure Hour:
     ↳ Timestamp : {peak_time}
     ↳ Hourly Cost: {peak_spend_eur:.2f} k€
-    ↳ Demand    : {peak_mw:.2f} MW
-    ↳ SPOT Price: {peak_price:.2f} €/MWh
+    ↳ Demand    : {format_mw(peak_mw)}
+    ↳ SPOT Price: {format_price(peak_price)}
 """
     else:
         report_content += "\n- Market economic volume assessment skipped (insufficient matching data).\n"

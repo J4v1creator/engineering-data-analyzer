@@ -3,7 +3,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from src.utils import translate_indicator
+from src.utils import format_price, translate_indicator
 
 
 def get_user_indicator_selection(demands_list: list[int], prices_list: list[int]) -> tuple[list[int], list[int]]:
@@ -214,4 +214,4 @@ def display_market_volume_summary(volume_stats: dict) -> None:
     print("\n💶 --- MARKET ECONOMIC VOLUME ANALYSIS ---")
     print("✅ Market demand and SPOT prices successfully aligned (1-hour resolution).")
     print(f"📊 Total Market Volume: {total_million_eur:.2f} M€")
-    print(f"📈 Volume-Weighted Average Price (VWAP): {weighted_price:.2f} €/MWh")
+    print(f"📈 Volume-Weighted Average Price (VWAP): {format_price(weighted_price)}")
