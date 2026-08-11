@@ -10,8 +10,8 @@ def get_user_indicator_selection(demands_list: list[int], prices_list: list[int]
     """Displays a unified menu for selecting both Demand and Price indicators.
 
     Args:
-        demands_list (list[int]): Available demand indicator IDs.
-        prices_list (list[int]): Available price indicator IDs.
+        demands_list (list[int]): Available demand indicator IDs (ordered by priority).
+        prices_list (list[int]): Available price indicator IDs (ordered by priority).
 
     Returns:
         tuple[list[int], list[int]]: Selected demand IDs and selected price IDs.
@@ -19,30 +19,27 @@ def get_user_indicator_selection(demands_list: list[int], prices_list: list[int]
     Raises:
         ValueError: If the user inputs invalid option numbers or formats.
     """
+    num_demands = len(demands_list)
+    num_prices = len(prices_list)
+    total_items = num_demands + num_prices
+
     print("\n📊 --- INDICATOR SELECTION MENU ---")
     print("Select indicators to analyze (Demands, Prices, or Both):\n")
 
-    menu_map = {}
-    current_idx = 1
-
     # Print Demands Section
     print("--- Energy Demands (MW) ---")
-    for item in demands_list:
-        menu_map[current_idx] = ("demand", item)
-        english_display = translate_indicator(indicator_id=item)
-        print(f"  [{current_idx}] {english_display}")
-        current_idx += 1
+    for idx, demand_id in enumerate(demands_list, start=1):
+        display_name = translate_indicator(indicator_id=demand_id)
+        print(f"  [{idx}] {display_name}")
 
     # Print Prices Section
     print("\n--- Energy Prices (€/MWh) ---")
-    for item in prices_list:
-        menu_map[current_idx] = ("price", item)
-        english_display = translate_indicator(indicator_id=item)
-        print(f"  [{current_idx}] {english_display}")
-        current_idx += 1
+    for idx, price_id in enumerate(prices_list, start=1):
+        english_display = translate_indicator(indicator_id=price_id)
+        print(f"  [{idx}] {english_display}")
 
     # Quick Actions
-    all_option_idx = current_idx
+    all_option_idx = total_items + 1
     print("\n--- Quick Actions ---")
     print(f"  [{all_option_idx}] ANALYZE ALL (Demands & Prices)")
     print("  [0] NONE / EXIT")
@@ -61,34 +58,27 @@ def get_user_indicator_selection(demands_list: list[int], prices_list: list[int]
 
             selected_indices = [int(x.strip()) for x in user_input.split(",")]
 
-            if all(idx in menu_map for idx in selected_indices):
-                selected_demands = []
-                selected_prices = []
-
-                for idx in selected_indices:
-                    category, indicator_id = menu_map[idx]
-                    if category == "demand":
-                        selected_demands.append(indicator_id)
-                    else:
-                        selected_prices.append(indicator_id)
-
-                if selected_demands:
-                    english_demands = [
-                        translate_indicator(indicator_id=demand_id) 
-                        for demand_id in selected_demands
-                    ]
-                    print(f"✅ Selected Demands: {', '.join(english_demands)}")
-
-                if selected_prices:
-                    english_prices = [
-                        translate_indicator(indicator_id=price_id) 
-                        for price_id in selected_prices
-                    ]
-                    print(f"✅ Selected Prices:  {', '.join(english_prices)}")
-
-                return selected_demands, selected_prices
-            else:
+            if not all(1 <= idx <= total_items for idx in selected_indices):
                 print("❌ Invalid selection. Please enter valid option numbers from the menu.")
+                continue
+
+            # Separate selected indices into demands and prices
+            selected_demands = [demands_list[idx - 1] for idx in selected_indices if idx <= num_demands]
+            selected_prices = [prices_list[idx - num_demands - 1] for idx in selected_indices if idx > num_demands]
+
+            if selected_demands:
+                english_demands = [translate_indicator(indicator_id=d) for d in selected_demands]
+                print(f"✅ Selected Demands: {', '.join(english_demands)}")
+            else:
+                print("⏩ No demands selected.")
+
+            if selected_prices:
+                english_prices = [translate_indicator(indicator_id=p) for p in selected_prices]
+                print(f"✅ Selected Prices:  {', '.join(english_prices)}")
+            else:
+                print("⏩ No prices selected.")
+
+            return selected_demands, selected_prices
 
         except ValueError:
             print("❌ Input format error. Please use numbers separated by commas (e.g., 1,5).")
@@ -109,11 +99,13 @@ def ask_comparison_targets(selected_demands: list[int]) -> tuple[int, int] | Non
     if len(selected_demands) < 2:
         return None
 
+    if len(selected_demands) == 2:
+        return selected_demands[0], selected_demands[1]
+
     print("\n🔍 --- ADVANCED DEMAND COMPARISON SELECTION ---")
     print("You selected multiple demands. Which two would you like to cross-analyze?")
 
-    indexed_selection = {i + 1: demand_id for i, demand_id in enumerate(selected_demands)}
-    for idx, demand_id in indexed_selection.items():
+    for idx, demand_id in enumerate(selected_demands, start=1):
         english_display = translate_indicator(indicator_id=demand_id)
         print(f"  [{idx}] {english_display}")
 
@@ -122,17 +114,25 @@ def ask_comparison_targets(selected_demands: list[int]) -> tuple[int, int] | Non
             user_input = input("\nSelect exactly two numbers separated by a comma (e.g., 1,2): ").strip()
             indices = [int(x.strip()) for x in user_input.split(",")]
 
-            if len(indices) == 2 and all(idx in indexed_selection for idx in indices):
-                if indices[0] == indices[1]:
-                    print("❌ You cannot compare a demand type against itself. Please pick two different ones.")
-                    continue
+            # Check that exactly two items were entered
+            if len(indices) != 2:
+                print("❌ Please enter exactly two numbers separated by a comma (e.g., 1,2).")
+                continue
 
-                model_a_id = indexed_selection[indices[0]]
-                model_b_id = indexed_selection[indices[1]]
+            # Check if user picked the exact same option twice
+            if indices[0] == indices[1]:
+                print("❌ You cannot compare a demand type against itself. Please pick two different options.")
+                continue
+
+            # Validate that both indices are within the valid range
+            if all(1 <= idx <= len(selected_demands) for idx in indices):
+                model_a_id = selected_demands[indices[0] - 1]
+                model_b_id = selected_demands[indices[1] - 1]
+
+                print(f"✅ Selected for cross-analysis: '{translate_indicator(model_a_id)}' vs '{translate_indicator(model_b_id)}'")
                 return model_a_id, model_b_id
 
-            valid_options = ", ".join(map(str, indexed_selection.keys()))
-            print(f"❌ Invalid choice. Please enter exactly two numbers from your active options: [{valid_options}].")
+            print(f"❌ Selection out of range. Please enter valid option numbers (1 to {len(selected_demands)}).")
 
         except ValueError:
             print("❌ Input format error. Please use numbers separated by commas only (e.g., 1,2).")
@@ -149,7 +149,8 @@ def display_anomalies_summary(anomalies: dict[str, list], demand_stats: dict) ->
         print("\n⚠️ --- ANOMALY DETECTION SUMMARY ---")
         has_printed = False
 
-        for series_label, issues in anomalies.items():
+        for series_label in demand_stats.keys():
+            issues = anomalies.get(series_label, [])
             if issues:
                 has_printed = True
                 print(f"⚠️ {series_label}: Found {len(issues)} statistical anomalies.")

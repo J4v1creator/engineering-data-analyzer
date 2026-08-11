@@ -83,8 +83,8 @@ def main() -> None:
         # Analyze: Execute specialized mathematical metrics per dataset type
         demand_stats = calculate_demand_statistics(df_demands, selected_demands)
         price_stats = calculate_price_statistics(df_prices, selected_prices)
-        comp_stats = compare_demand_models(df_filtered, comparison_targets)
-        anomalies = detect_demand_anomalies(df_filtered)
+        comp_stats = compare_demand_models(df_demands, comparison_targets)
+        anomalies = detect_demand_anomalies(df_demands)
         market_volume_stats = calculate_market_economic_volume(df_filtered)
 
         # Output: Render descriptive warning logs and runtime evaluation summaries to the CLI
