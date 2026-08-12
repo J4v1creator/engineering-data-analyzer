@@ -41,6 +41,31 @@ PRICE_INDICATOR_IDS = [
     1001,  # PVPC Retail Energy Price
 ]
 
+# --- Geographic Region Priority Ordering ---
+# Controls the exact sequence of regions in plots, CLI output, and tables.
+
+# Specific priority order for Spot Market Prices
+SPOT_GEO_ORDER = [
+    3,     # Spain
+    1,     # Portugal
+    2,     # France
+    8826,  # Germany
+    8827,  # Belgium
+    8828,  # Netherlands
+]
+
+# Specific priority order for PVPC Retail Prices & Demands
+PVPC_GEO_ORDER = [
+    8741,  # Peninsula
+    8743,  # Balearic Islands
+    8742,  # Canary Islands
+    8744,  # Ceuta
+    8745,  # Melilla
+]
+
+# Global priority fallback list (unifies all regions for generic sorting)
+GLOBAL_GEO_ORDER = SPOT_GEO_ORDER + PVPC_GEO_ORDER
+
 # --- Translations (ESIOS Numerical IDs to English Standards) ---
 INDICATOR_TRANSLATIONS = {
     1293: "Real Demand",

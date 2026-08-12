@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from config.settings import DEFAULT_ANOMALY_THRESHOLD, DEMAND_INDICATOR_IDS, PRICE_INDICATOR_IDS
+from config.settings import DEFAULT_ANOMALY_THRESHOLD, DEMAND_INDICATOR_IDS, GLOBAL_GEO_ORDER, PRICE_INDICATOR_IDS
 from src.utils import translate_indicator
 
 
@@ -84,13 +84,17 @@ def calculate_price_statistics(df_prices: pd.DataFrame, selected_prices: list[in
 
     # Sort DataFrame rows based on PRICE_INDICATOR_IDS ordering
     df_filtered["indicator_id"] = pd.Categorical(df_filtered["indicator_id"], categories=target_ids, ordered=True)
-    df_filtered = df_filtered.sort_values("indicator_id")
+    df_filtered["geo_id"] = pd.Categorical(df_filtered["geo_id"], categories=GLOBAL_GEO_ORDER, ordered=True)
+    df_filtered = df_filtered.sort_values(["indicator_id", "geo_id"])
 
     has_multiple_geos = df_filtered["geo_id"].nunique() > 1
     stats = {}
 
     # Grouping with sort=False preserves the categorical order applied above
-    for (price_id, geo_id), df_sub in df_filtered.groupby(["indicator_id", "geo_id"], sort=False):
+    for (price_id, geo_id), df_sub in df_filtered.groupby(["indicator_id", "geo_id"], sort=False, observed=True):
+        if df_sub.empty:
+            continue
+
         values = df_sub["value"]
         max_row = df_sub.loc[values.idxmax()]
         min_row = df_sub.loc[values.idxmin()]

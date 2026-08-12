@@ -7,7 +7,14 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from config.settings import DEFAULT_OUTPUT_DIR, DEMAND_COLOR_PALETTE, DEMAND_INDICATOR_IDS, GEO_COLOR_PALETTE, PRICE_INDICATOR_IDS
+from config.settings import (
+    DEFAULT_OUTPUT_DIR,
+    DEMAND_COLOR_PALETTE,
+    DEMAND_INDICATOR_IDS,
+    GEO_COLOR_PALETTE,
+    GLOBAL_GEO_ORDER,
+    PRICE_INDICATOR_IDS
+)
 from src.utils import translate_indicator
 
 
@@ -23,12 +30,12 @@ def _plot_time_series(
     """Internal helper function to generate and save standardized time-series plots.
 
     Args:
-        df (pd.DataFrame): Validated dataset with datetime, value, indicator_id/id, and geo_id.
+        df (pd.DataFrame): Validated dataset with datetime, value, indicator_id, and geo_id.
         title (str): Chart title.
         y_label (str): Label for the Y-axis including units.
         filename_prefix (str): Prefix for the saved PNG file (e.g., 'demand' or 'price').
-        color_palette (dict): Palette containing hex color mappings for each indicator.
-        priority_order (list[int] | None): Order of indicators to display.
+        color_palette (dict): Palette containing hex color mappings for each indicator/geo.
+        priority_order (list[int] | None): Order of indicator IDs to display.
         output_dir (str | Path): Destination directory for the plot.
 
     Returns:
@@ -43,10 +50,18 @@ def _plot_time_series(
 
     df_copy = df.copy()
 
-    # Apply priority ordering using Categorical sorting if provided
+    # Apply indicator sorting if provided
     if priority_order:
         df_copy["indicator_id"] = pd.Categorical(df_copy["indicator_id"], categories=priority_order, ordered=True)
-        df_copy = df_copy.sort_values("indicator_id")
+
+    # Apply geographic region sorting from settings
+    if "geo_id" in df_copy.columns:
+        df_copy["geo_id"] = pd.Categorical(df_copy["geo_id"], categories=GLOBAL_GEO_ORDER, ordered=True)
+
+    # Sort DataFrame rows by indicator and geography priority before plotting
+    sort_cols = [col for col in ["indicator_id", "geo_id"] if col in df_copy.columns]
+    if sort_cols:
+        df_copy = df_copy.sort_values(sort_cols)
 
     min_dt = df_copy["datetime"].min()
     max_dt = df_copy["datetime"].max()
@@ -66,7 +81,10 @@ def _plot_time_series(
 
     has_multiple_geos = df_copy["geo_id"].nunique() > 1
 
-    for (ind_id, geo_id), group_df in df_copy.groupby(["indicator_id", "geo_id"], sort=False):
+    for (ind_id, geo_id), group_df in df_copy.groupby(["indicator_id", "geo_id"], sort=False, observed=True):
+        if group_df.empty:
+            continue
+
         group_sorted = group_df.sort_values("datetime")
 
         legend_label = translate_indicator(indicator_id=ind_id, geo_id=geo_id, show_geo=has_multiple_geos)
