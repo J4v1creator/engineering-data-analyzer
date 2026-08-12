@@ -2,7 +2,12 @@
 
 import pandas as pd
 
-from config.settings import DEFAULT_ANOMALY_THRESHOLD, DEMAND_INDICATOR_IDS, GLOBAL_GEO_ORDER, PRICE_INDICATOR_IDS
+from config.settings import (
+    DEFAULT_ANOMALY_THRESHOLD,
+    DEMAND_INDICATOR_IDS,
+    GLOBAL_GEO_ORDER,
+    PRICE_INDICATOR_IDS,
+    )
 from src.utils import translate_indicator
 
 
@@ -195,26 +200,35 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple[int, int] | list[int]
 
 
 def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY_THRESHOLD) -> dict[str, list[dict]]:
-    """Detects abnormal spikes or drops in energy/price series using Z-Score methodology.
+    """Detects abnormal spikes or drops in demand series using Z-Score methodology.
 
     Args:
-        df (pd.DataFrame): Filtered energy DataFrame.
+        df (pd.DataFrame): Filtered demand DataFrame.
         threshold (float): Z-score cut-off threshold.
 
     Returns:
-        dict[str, list[dict]]: Dictionary mapping series labels to lists of anomaly events.
+        dict[str, list[dict]]: Dictionary mapping demand labels to lists of anomaly events.
     """
-    # 1. Early exit if DataFrame is empty or missing required columns
+    # Early exit if DataFrame is empty or missing required columns
     if df.empty or "indicator_id" not in df.columns or "geo_id" not in df.columns:
         print("⚠️ [ANOMALIES] Empty dataset or missing required columns. Skipping analysis.")
         return {}
 
-    print("\n🔍 Scanning for statistical anomalies in dataset series...")
+    print("\n🔍 Scanning for statistical anomalies in energy demand series...")
     anomalies_report = {}
-    has_multiple_geos = df["geo_id"].nunique() > 1
 
-    # 2. Group by indicator and region to calculate localized Z-Scores
-    for (ind_id, geo_id), group_df in df.groupby(["indicator_id", "geo_id"]):
+    df_filtered = df.copy()
+
+    # Apply Categorical ordering ONLY for demand indicators
+    df_filtered["indicator_id"] = pd.Categorical(df_filtered["indicator_id"], categories=DEMAND_INDICATOR_IDS, ordered=True)
+
+    # Sort rows based on demand configuration priority
+    df_filtered = df_filtered.sort_values("indicator_id")
+
+    has_multiple_geos = df_filtered["geo_id"].nunique() > 1
+
+    # Group by indicator and region (sort=False and observed=True keep categorical order)
+    for (ind_id, geo_id), group_df in df_filtered.groupby(["indicator_id", "geo_id"], sort=False, observed=True):
         if len(group_df) < 3:
             continue
 
@@ -236,7 +250,6 @@ def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY
             anomalies_report[series_label] = []
 
             for _, row in anomaly_rows.iterrows():
-                # Format datetime safely to string (e.g. "2026-03-15 14:00")
                 dt_val = row["datetime"]
                 dt_str = dt_val.strftime("%Y-%m-%d %H:%M") if hasattr(dt_val, "strftime") else str(dt_val)
 
