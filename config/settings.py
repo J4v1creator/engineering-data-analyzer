@@ -127,3 +127,20 @@ GEO_COLOR_PALETTE = {
     # Fallback
     "default": "#7f7f7f",
 }
+
+# --- Excel Export Styling Configurations ---
+EXCEL_SECTION_GAP = 3
+
+EXCEL_PRIMARY_FILL_COLOR = "1F4E78"    # Dark Blue for main section headers
+EXCEL_SECONDARY_FILL_COLOR = "D9E1F2"  # Light Blue for table column headers
+EXCEL_BORDER_COLOR = "D3D3D3"          # Soft light grey for cell borders
+
+EXCEL_PRIMARY_SECTION_KEYWORDS = {
+    "ANALYSIS METADATA & PERIOD",
+    "MARKET ECONOMIC VOLUME SUMMARY",
+    "KEY INDICATORS PERFORMANCE OVERVIEW",
+    "DETAILED DEMAND STATISTICS (MW)",
+    "DETAILED PRICE STATISTICS (€/MWh)",
+    "PAIRWISE DEMAND MODEL COMPARISON",
+    "DETECTED STATISTICAL ANOMALIES & OUTLIERS",
+}
