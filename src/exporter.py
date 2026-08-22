@@ -28,8 +28,14 @@ def _apply_workbook_styles(file_path: Path) -> None:
         print(f"⚠️ Could not load workbook for styling: {e}")
         return
 
-    header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
-    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    # 1. Primary Headers / Section Titles (Nivel 1 - Oscuro)
+    primary_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+    primary_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+
+    # 2. Column Headers / Data Headers (Nivel 2 - Azul Claro Elegante)
+    secondary_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+    secondary_font = Font(name="Calibri", size=11, bold=True, color="1F4E78")
+
     thin_border = Border(
         left=Side(style="thin", color="D3D3D3"),
         right=Side(style="thin", color="D3D3D3"),
@@ -38,30 +44,50 @@ def _apply_workbook_styles(file_path: Path) -> None:
     )
     align_center = Alignment(horizontal="center", vertical="center")
 
-    header_keywords = {
-        "Metric",
-        "Market Indicator",
-        "Indicator",
-        "Indicator Name",
-        "Baseline Series",
-        "Timestamp",
-        "Datetime",
-        "indicator_id",
-        "id",
+    primary_section_keywords = {
+        "ANALYSIS METADATA & PERIOD",
+        "MARKET ECONOMIC VOLUME SUMMARY",
+        "KEY INDICATORS PERFORMANCE OVERVIEW",
+        "DETAILED DEMAND STATISTICS (MW)",
+        "DETAILED PRICE STATISTICS (€/MWh)",
+        "PAIRWISE DEMAND MODEL COMPARISON",
+        "DETECTED STATISTICAL ANOMALIES & OUTLIERS",
     }
 
     for sheet in wb.worksheets:
         sheet.views.sheetView[0].showGridLines = True
 
+        column_header_rows = set()
+
+        for row_idx, row in enumerate(sheet.iter_rows(), start=1):
+            first_cell_val = row[0].value
+
+            # Check if current row is a Primary Section Title
+            if isinstance(first_cell_val, str) and any(kw in first_cell_val for kw in primary_section_keywords):
+                # The very next row will automatically be the Column Headers row
+                column_header_rows.add(row_idx + 1)
+            elif row_idx == 1:
+                # If sheet starts directly with data table
+                column_header_rows.add(1)
+
         for row in sheet.iter_rows():
+            first_cell_val = row[0].value
+            is_primary_row = isinstance(first_cell_val, str) and any(kw in first_cell_val for kw in primary_section_keywords)
+            is_secondary_row = row[0].row in column_header_rows
+
             for cell in row:
                 if cell.value is not None:
                     cell.border = thin_border
 
                     # Header Detection Logic
-                    if isinstance(cell.value, str) and (cell.row == 1 or cell.value in header_keywords):
-                        cell.fill = header_fill
-                        cell.font = header_font
+                    if is_primary_row:
+                        cell.fill = primary_fill
+                        cell.font = primary_font
+                        cell.alignment = align_center
+
+                    elif is_secondary_row:
+                        cell.fill = secondary_fill
+                        cell.font = secondary_font
                         cell.alignment = align_center
 
                     # Number Formatting for Floats
@@ -134,6 +160,7 @@ def export_to_excel(
         # ==========================================
         # TAB 1: EXECUTIVE SUMMARY
         # ==========================================
+        sheet_name = "Executive Summary"
 
         # 1.1 Metadata Block
         meta_data = {
@@ -149,7 +176,14 @@ def export_to_excel(
             ],
         }
         df_meta = pd.DataFrame(meta_data)
-        df_meta.to_excel(writer, sheet_name="Executive Summary", startrow=1, index=False)
+        df_meta.to_excel(writer, sheet_name=sheet_name, startrow=1, index=False)
+
+        # Assign Title to Table 1.1
+        ws = writer.sheets[sheet_name]
+        ws.cell(row=1, column=1, value="ANALYSIS METADATA & PERIOD")
+
+        # Dynamic registration to control table spacing
+        current_row = 1 + len(df_meta) + 3
 
         # 1.2 Market Volume Block
         if market_volume_stats:
@@ -174,7 +208,12 @@ def export_to_excel(
                 ],
             }
             df_volume = pd.DataFrame(volume_data)
-            df_volume.to_excel(writer, sheet_name="Executive Summary", startrow=6, index=False)
+
+            # Write Title and Table 1.2
+            ws.cell(row=current_row, column=1, value="MARKET ECONOMIC VOLUME SUMMARY")
+            df_volume.to_excel(writer, sheet_name=sheet_name, startrow=current_row, index=False)
+
+            current_row += len(df_volume) + 3
 
         # 1.3 Quick Indicators Overview Block
         summary_rows = []
@@ -205,11 +244,16 @@ def export_to_excel(
 
         if summary_rows:
             df_summary = pd.DataFrame(summary_rows)
-            df_summary.to_excel(writer, sheet_name="Executive Summary", startrow=16, index=False)
+
+            # Write Title and Table 1.3
+            ws.cell(row=current_row, column=1, value="KEY INDICATORS PERFORMANCE OVERVIEW")
+            df_summary.to_excel(writer, sheet_name=sheet_name, startrow=current_row, index=False)
 
         # ==========================================
         # TAB 2: STATISTICAL ANALYSIS
         # ==========================================
+        sheet_name = "Statistical Analysis"
+        current_row = 1
 
         # 2.1 Demand Statistics Table
         demand_cols = [
@@ -234,7 +278,15 @@ def export_to_excel(
             for series_label, stats in demand_stats.items()
         ]
         df_demand_sheet = pd.DataFrame(demand_rows, columns=demand_cols)
-        df_demand_sheet.to_excel(writer, sheet_name="Statistical Analysis", startrow=1, index=False)
+
+        if not df_demand_sheet.empty:
+            # Write Title and Table 2.1
+            df_demand_sheet.to_excel(writer, sheet_name=sheet_name, startrow=current_row, index=False)
+
+            ws = writer.sheets[sheet_name]
+            ws.cell(row=current_row, column=1, value="DETAILED DEMAND STATISTICS (MW)")
+
+            current_row += len(df_demand_sheet) + 3
 
         # 2.2 Price Statistics Table (placed below Demand Table with padding)
         price_cols = [
@@ -260,13 +312,20 @@ def export_to_excel(
         ]
         df_price_sheet = pd.DataFrame(price_rows, columns=price_cols)
 
-        # Dynamic start row based on Demand Table height + padding space
-        start_row_price = len(df_demand_sheet) + 4
-        df_price_sheet.to_excel(writer, sheet_name="Statistical Analysis", startrow=start_row_price, index=False)
+        if not df_price_sheet.empty:
+            # Write Title and Table 2.2
+            df_price_sheet.to_excel(writer, sheet_name=sheet_name, startrow=current_row, index=False)
+
+            ws = writer.sheets[sheet_name]
+            ws.cell(row=current_row, column=1, value="DETAILED PRICE STATISTICS (€/MWh)")
+
+            current_row += len(df_price_sheet) + 3
 
         # ==========================================
         # TAB 3: MODELS & ANOMALIES
         # ==========================================
+        sheet_name = "Models & Anomalies"
+        current_row = 1
 
         # 3.1 Model Comparison Metrics
         comp_cols = [
@@ -299,7 +358,15 @@ def export_to_excel(
             )
 
         df_comp_sheet = pd.DataFrame(comp_rows, columns=comp_cols)
-        df_comp_sheet.to_excel(writer, sheet_name="Models & Anomalies", startrow=1, index=False)
+
+        if not df_comp_sheet.empty:
+            # Write Model Comparison Table & Title
+            df_comp_sheet.to_excel(writer, sheet_name=sheet_name, startrow=current_row, index=False)
+
+            ws = writer.sheets[sheet_name]
+            ws.cell(row=current_row, column=1, value="PAIRWISE DEMAND MODEL COMPARISON")
+
+            current_row += len(df_comp_sheet) + 3
 
         # 3.2 Anomalies Table (placed below Model Comparison with padding)
         anomaly_cols = [
@@ -325,9 +392,14 @@ def export_to_excel(
 
         df_anomaly_sheet = pd.DataFrame(anomaly_rows, columns=anomaly_cols)
 
-        # Dynamic start row based on Model Comparison Table height + padding space
-        start_row_anom = len(df_comp_sheet) + 4
-        df_anomaly_sheet.to_excel(writer, sheet_name="Models & Anomalies", startrow=start_row_anom, index=False)
+        if not df_anomaly_sheet.empty:
+            # Write Anomalies Table & Title
+            df_anomaly_sheet.to_excel(writer, sheet_name=sheet_name, startrow=current_row, index=False)
+
+            ws = writer.sheets[sheet_name]
+            ws.cell(row=current_row, column=1, value="DETECTED STATISTICAL ANOMALIES & OUTLIERS")
+
+            current_row += len(df_anomaly_sheet) + 3
 
         # ==========================================
         # TAB 4: CLEAN DATA
