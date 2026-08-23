@@ -13,9 +13,6 @@ __pycache__/
 *.pyd
 .pytest_cache/
 
-# Auxiliary scripts & temporary exports (Ignore directory and all contents)
-scripts/
-
 # Project dynamic data & database (Keep structure, ignore contents)
 data/*
 !data/.gitkeep
