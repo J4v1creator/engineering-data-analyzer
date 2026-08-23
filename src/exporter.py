@@ -42,7 +42,8 @@ def _write_section(
     df_data: pd.DataFrame,
     start_row: int,
 ) -> int:
-    """Writes a standardized section consisting of a section title row and a Pandas DataFrame.
+    """Writes a standardized section consisting of a section title row merged across
+    data columns and a Pandas DataFrame.
 
     Args:
         writer (pd.ExcelWriter): OpenPyXL Excel writer instance.
@@ -54,22 +55,28 @@ def _write_section(
     Returns:
         int: Next available 1-based row index after inserting spacing gap.
     """
-    # 1. Write Data Table first (this automatically creates the sheet if it doesn't exist)
+    # 1. Write Data Table first (creates the worksheet if it doesn't exist)
     data_start_row = start_row + 1
     df_data.to_excel(writer, sheet_name=sheet_name, startrow=data_start_row - 1, index=False)
 
-    # 2. Access the worksheet and write Primary Section Title above the table
     ws = writer.sheets[sheet_name]
+
+    # 2. Determine table width and merge title cells across all columns
+    num_cols = len(df_data.columns)
+    if num_cols > 1:
+        ws.merge_cells(start_row=start_row, start_column=1, end_row=start_row, end_column=num_cols)
+
+    # 3. Write Section Title in top-left cell of the merged region
     ws.cell(row=start_row, column=1, value=title)
 
-    # 3. Calculate next section starting row including gap
+    # 4. Calculate next section starting row including gap
     next_row = start_row + 1 + len(df_data) + EXCEL_SECTION_GAP
     return next_row
 
 
 def _apply_workbook_styles(file_path: Path) -> None:
     """Applies professional styling, color hierarchies, thin borders,
-    and auto-fits column widths across all worksheets.
+    and auto-fits column widths accurately across all worksheets.
 
     Args:
         file_path (Path): File path to the Excel workbook.
@@ -92,29 +99,52 @@ def _apply_workbook_styles(file_path: Path) -> None:
         for row_idx, row in enumerate(sheet.iter_rows(), start=1):
             first_cell_val = row[0].value
             if isinstance(first_cell_val, str) and any(kw in first_cell_val for kw in EXCEL_PRIMARY_SECTION_KEYWORDS):
-                # The row immediately following a primary section title is always a table header
                 column_header_rows.add(row_idx + 1)
 
-        # Step 2: Apply styles and formatting to cell ranges
+        # Step 2: Apply styles strictly within exact table bounds
         for row in sheet.iter_rows():
             first_cell_val = row[0].value
-            is_primary_row = isinstance(first_cell_val, str) and any(kw in first_cell_val for kw in EXCEL_PRIMARY_SECTION_KEYWORDS)
-            is_secondary_row = row[0].row in column_header_rows
+            row_idx = row[0].row
 
-            for cell in row:
-                if cell.value is not None:
+            is_primary_row = isinstance(first_cell_val, str) and any(kw in first_cell_val for kw in EXCEL_PRIMARY_SECTION_KEYWORDS)
+            is_secondary_row = row_idx in column_header_rows
+
+            if is_primary_row:
+                # Find the exact width (max_column) of the merged range for this specific primary title
+                max_title_col = 1
+                for merged_range in sheet.merged_cells.ranges:
+                    if merged_range.min_row == row_idx:
+                        max_title_col = merged_range.max_col
+                        break
+
+                # Apply header styling ONLY up to the table's merged width
+                for col_idx in range(1, max_title_col + 1):
+                    cell = sheet.cell(row=row_idx, column=col_idx)
+                    cell.fill = PRIMARY_FILL
+                    cell.font = PRIMARY_FONT
+                    cell.alignment = ALIGN_CENTER
                     cell.border = THIN_BORDER
 
-                    if is_primary_row:
-                        cell.fill = PRIMARY_FILL
-                        cell.font = PRIMARY_FONT
-                        cell.alignment = ALIGN_CENTER
-                    elif is_secondary_row:
-                        cell.fill = SECONDARY_FILL
-                        cell.font = SECONDARY_FONT
-                        cell.alignment = ALIGN_CENTER
-                    elif isinstance(cell.value, float):
-                        cell.number_format = "#,##0.00"
+            elif is_secondary_row:
+                # Count only the actual non-empty columns for this table header
+                num_header_cols = len([c for c in row if c.value is not None])
+
+                # Apply secondary styling ONLY up to the table's actual column count
+                for col_idx in range(1, num_header_cols + 1):
+                    cell = sheet.cell(row=row_idx, column=col_idx)
+                    cell.fill = SECONDARY_FILL
+                    cell.font = SECONDARY_FONT
+                    cell.alignment = ALIGN_CENTER
+                    cell.border = THIN_BORDER
+
+            else:
+                # Standard data rows: format existing cell values only
+                for cell in row:
+                    if cell.value is not None:
+                        cell.border = THIN_BORDER
+
+                        if isinstance(cell.value, float):
+                            cell.number_format = "#,##0.00"
 
         # Step 3: Auto-fit column widths dynamically
         for col in sheet.columns:
