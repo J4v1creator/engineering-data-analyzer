@@ -36,6 +36,11 @@ engineering-data-analyzer/
 │
 ├── outputs/                  # Isolated pipeline exports (Generated charts, reports and Excel files)
 │
+├── scripts/                  # Developer CLI utilities and administration tools
+│   ├── fetch_raw_sample.py   # Utility to fetch and save unparsed raw API JSON payloads for inspection
+│   ├── inspect_db.py         # Diagnostic utility to inspect cached indicators, timeframe, and record counts
+│   └── reset_db.py           # Utility script to safely wipe local SQLite cache records
+│
 ├── src/                      # Package source root
 │   ├── __init__.py           # Package initialization marker
 │   ├── analyzer.py           # Core mathematics, price spread evaluation, market volume calculation, and Z-Score anomaly modeling
@@ -97,6 +102,22 @@ To initiate the main pipeline, execute the orchestrator script from your termina
 ```bash
 python main.py
 ```
+
+### Developer Tools
+To reset the local SQLite cache database during development, run:
+```bash
+python -m scripts.reset_db
+```
+To inspect the current status and metrics summary of the local cache, run:
+```bash
+python -m scripts.inspect_db
+```
+To fetch a raw JSON payload directly from the e·sios API for structural inspection (defaults to ID 600, or pass a custom ID):
+```bash
+python -m scripts.fetch_raw_sample
+python -m scripts.fetch_raw_sample 1001
+```
+
 
 ### Pipeline Workflow
 1. **System Initialization & Cache Maintenance (`cleaner.py` / `database.py`):** Ensures SQLite tables exist and automatically removes obsolete database entries exceeding the TTL threshold.
