@@ -34,7 +34,7 @@ def get_user_indicator_selection(demands_list: list[int], prices_list: list[int]
 
     # Print Prices Section
     print("\n--- Energy Prices (€/MWh) ---")
-    for idx, price_id in enumerate(prices_list, start=1):
+    for idx, price_id in enumerate(prices_list, start=num_demands + 1):
         english_display = translate_indicator(indicator_id=price_id)
         print(f"  [{idx}] {english_display}")
 
