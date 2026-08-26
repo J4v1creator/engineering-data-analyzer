@@ -70,7 +70,7 @@ def _clean_expired_database_records(db_path: str | Path, expiration_days: int) -
 
             query = """
                 DELETE FROM esios_records
-                WHERE julianday(datetime) < julianday('now', ? || ' days');
+                WHERE julianday(last_accessed_at) < julianday('now', ? || ' days');
             """
             initial_changes = conn.total_changes
             cursor.execute(query, (f"-{expiration_days}",))

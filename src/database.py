@@ -48,6 +48,7 @@ def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> None:
                     value REAL NOT NULL,
                     datetime TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(indicator_id, datetime, geo_id)
                 )
             """)
@@ -56,6 +57,12 @@ def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> None:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_records_indicator_geo_datetime 
                 ON esios_records (indicator_id, geo_id, datetime);
+            """)
+
+            # Index on last_accessed_at for ultra-fast expiration purges
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_records_last_accessed 
+                ON esios_records (last_accessed_at);
             """)
 
             conn.commit()
@@ -67,25 +74,25 @@ def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> None:
 
 def save_dataframe(df: pd.DataFrame, db_path: str | Path = DEFAULT_DB_PATH) -> int:
     """Saves a pandas DataFrame into the SQLite database.
-    Bypasses duplicate entries using INSERT OR IGNORE on composite keys.
+    If the record already exists, refreshes value and last_accessed_at timestamp.
 
     Args:
         df (pd.DataFrame): DataFrame containing ESIOS records.
         db_path (str | Path): Path to the SQLite database file.
 
     Returns:
-        int: Total number of new rows inserted into the database.
+        int: Total number of new or updated rows processed in the database.
     """
     if df.empty:
         return 0
 
-    init_db(db_path)  # Ensures table schema exists before writing
+    init_db(db_path)
 
     df_to_save = df.copy()
 
-    # Ensure datetime column is converted to ISO string format for SQLite string comparison
+    # Convert datetime column to standardized UTC ISO string format for SQLite comparisons
     if pd.api.types.is_datetime64_any_dtype(df_to_save["datetime"]):
-        df_to_save["datetime"] = df_to_save["datetime"].dt.strftime("%Y-%m-%dT%H:%M:%S%z")
+        df_to_save["datetime"] = df_to_save["datetime"].dt.tz_convert("UTC").dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # Flexible mapping fallback if column is named 'id' instead of 'indicator_id'
     if "indicator_id" not in df_to_save.columns and "id" in df_to_save.columns:
@@ -94,8 +101,12 @@ def save_dataframe(df: pd.DataFrame, db_path: str | Path = DEFAULT_DB_PATH) -> i
     records = df_to_save[["indicator_id", "name", "geo_id", "geo_name", "value", "datetime"]].values.tolist()
 
     insert_query = """
-        INSERT OR IGNORE INTO esios_records (indicator_id, name, geo_id, geo_name, value, datetime)
+        INSERT INTO esios_records (indicator_id, name, geo_id, geo_name, value, datetime)
         VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(indicator_id, geo_id, datetime) 
+        DO UPDATE SET 
+            value = excluded.value,
+            last_accessed_at = CURRENT_TIMESTAMP
     """
 
     with get_connection(db_path) as conn:
@@ -105,7 +116,7 @@ def save_dataframe(df: pd.DataFrame, db_path: str | Path = DEFAULT_DB_PATH) -> i
         conn.commit()
         inserted_count = conn.total_changes - initial_changes
 
-    print(f"💾 [DATABASE] Inserted {inserted_count} new records into SQLite database.")
+    print(f"💾 [DATABASE] Processed {inserted_count} records in SQLite database.")
     return inserted_count
 
 
@@ -116,12 +127,12 @@ def load_data_by_ids(
     geo_ids: list[int] | None = None,
     db_path: str | Path = DEFAULT_DB_PATH,
 ) -> pd.DataFrame:
-    """Loads ESIOS records from SQLite matching selected IDs, optional geography IDs, and time range.
+    """Loads ESIOS records matching selected IDs and time range, and updates last_accessed_at.
 
     Args:
         indicator_ids (list[int]): List of indicator IDs to filter.
-        start_iso (str | datetime): Start datetime in ISO format string or datetime object.
-        end_iso (str | datetime): End datetime in ISO format string or datetime object.
+        start_iso (str | datetime): Start datetime in ISO string or datetime object.
+        end_iso (str | datetime): End datetime in ISO string or datetime object.
         geo_ids (list[int] | None): Optional list of geo_id values to filter by region.
         db_path (str | Path): Path to the SQLite database file.
 
@@ -133,13 +144,20 @@ def load_data_by_ids(
 
     init_db(db_path)
 
-    # Ensure start and end datetimes are formatted as ISO strings
-    if isinstance(start_iso, datetime):
-        start_iso = start_iso.isoformat()
-    if isinstance(end_iso, datetime):
-        end_iso = end_iso.isoformat()
+    # Normalize start and end datetimes to standard UTC ISO format for SQL query
+    if isinstance(start_iso, str):
+        start_dt_obj = pd.to_datetime(start_iso, utc=True)
+    else:
+        start_dt_obj = pd.to_datetime(start_iso).tz_convert("UTC") if start_iso.tzinfo else pd.to_datetime(start_iso).tz_localize("UTC")
 
-    # Build dynamic SQL query with parameterized values
+    if isinstance(end_iso, str):
+        end_dt_obj = pd.to_datetime(end_iso, utc=True)
+    else:
+        end_dt_obj = pd.to_datetime(end_iso).tz_convert("UTC") if end_iso.tzinfo else pd.to_datetime(end_iso).tz_localize("UTC")
+
+    start_str = start_dt_obj.strftime("%Y-%m-%dT%H:%M:%SZ")
+    end_str = end_dt_obj.strftime("%Y-%m-%dT%H:%M:%SZ")
+
     id_placeholders = ", ".join(["?"] * len(indicator_ids))
     query = f"""
         SELECT indicator_id AS id, indicator_id, name, geo_id, geo_name, value, datetime
@@ -148,9 +166,8 @@ def load_data_by_ids(
             AND datetime >= ?
             AND datetime <= ?
     """
-    params = list(indicator_ids) + [start_iso, end_iso]
+    params = list(indicator_ids) + [start_str, end_str]
 
-    # Apply optional filtering by geographic IDs
     if geo_ids:
         geo_placeholders = ", ".join(["?"] * len(geo_ids))
         query += f" AND geo_id IN ({geo_placeholders})"
@@ -159,10 +176,27 @@ def load_data_by_ids(
     query += " ORDER BY datetime ASC, geo_id ASC"
 
     with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+
+        # Update last_accessed_at for records matching the query to reset expiration timer
+        update_query = f"""
+            UPDATE esios_records
+            SET last_accessed_at = CURRENT_TIMESTAMP
+            WHERE indicator_id IN ({id_placeholders})
+                AND datetime >= ?
+                AND datetime <= ?
+        """
+        update_params = list(params)
+        if geo_ids:
+            update_query += f" AND geo_id IN ({', '.join(['?'] * len(geo_ids))})"
+
+        cursor.execute(update_query, update_params)
+
+        # Retrieve matching records
         df = pd.read_sql_query(query, conn, params=params)
 
     if not df.empty:
-        # Convert datetime column back to localized timezone-aware objects
+        # Convert datetime column back to Europe/Madrid localized objects
         df["datetime"] = pd.to_datetime(df["datetime"], utc=True).dt.tz_convert("Europe/Madrid")
 
     return df
