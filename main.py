@@ -74,10 +74,7 @@ def main() -> None:
         # Process: Establish target baselines and pairwise comparison groups
         comparison_targets = None
 
-        if len(selected_demands) == 2:
-            comparison_targets = (selected_demands[0], selected_demands[1])
-            print(f"\n🧠 Automatically selecting indicators [{selected_demands[0]}] and [{selected_demands[1]}] for comparison.")
-        elif len(selected_demands) > 2:
+        if len(selected_demands) >= 2:
             comparison_targets = ask_comparison_targets(selected_demands)
 
         # Analyze: Execute specialized mathematical metrics per dataset type

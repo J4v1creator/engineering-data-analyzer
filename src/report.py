@@ -123,6 +123,11 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
     else:
         report_content += "\n- No price indicators were selected for this run.\n"
 
+    report_content += """
+--------------------------------------------------
+4. ADVANCED MODEL COMPARISON (DEMANDS ONLY)
+--------------------------------------------------"""
+
     # Advanced Model Comparison Section
     if comp_stats:
         model_a = comp_stats.get("model_a")
@@ -132,9 +137,6 @@ Data Source:       Red Eléctrica de España (REE / e·sios)
         model_b_en = translate_indicator(indicator_id=model_b) if isinstance(model_b, int) else str(model_b)
 
         report_content += f"""
---------------------------------------------------
-4. ADVANCED MODEL COMPARISON (DEMANDS ONLY)
---------------------------------------------------
 Comparison Baseline (Model A): {model_a_en}
 Compared Target     (Model B): {model_b_en}
 
@@ -145,6 +147,8 @@ Compared Target     (Model B): {model_b_en}
 - Mean Absolute Pct. Error:     {comp_stats['mape']:.2f}%
 - Pearson Correlation (r):      {comp_stats['correlation']:.4f}
 """
+    else:
+        report_content += "\n- No demand indicators were selected for cross-analysis in this run.\n"
 
     # Statistical Anomaly Detection Section
     report_content += f"""

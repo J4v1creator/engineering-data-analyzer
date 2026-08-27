@@ -85,13 +85,14 @@ def get_user_indicator_selection(demands_list: list[int], prices_list: list[int]
 
 
 def ask_comparison_targets(selected_demands: list[int]) -> tuple[int, int] | None:
-    """Prompts the user to select exactly two distinct demand types for cross-analysis.
+    """Prompts the user to select two distinct demand types for cross-analysis
+    or skip the comparison entirely.
 
     Args:
         selected_demands (list[int]): List of demand IDs selected by the user.
 
     Returns:
-        tuple[int, int] | None: IDs of the two distinct demand types selected or None if insufficient.
+        tuple[int, int] | None: IDs of the two distinct demand types selected, or None if skipped/insufficient.
 
     Raises:
         ValueError: If the user inputs invalid option numbers or formats.
@@ -99,24 +100,28 @@ def ask_comparison_targets(selected_demands: list[int]) -> tuple[int, int] | Non
     if len(selected_demands) < 2:
         return None
 
-    if len(selected_demands) == 2:
-        return selected_demands[0], selected_demands[1]
-
     print("\n🔍 --- ADVANCED DEMAND COMPARISON SELECTION ---")
     print("You selected multiple demands. Which two would you like to cross-analyze?")
 
     for idx, demand_id in enumerate(selected_demands, start=1):
         english_display = translate_indicator(indicator_id=demand_id)
         print(f"  [{idx}] {english_display}")
+    print("  [0] Skip comparison (Do not compare)")
 
     while True:
         try:
-            user_input = input("\nSelect exactly two numbers separated by a comma (e.g., 1,2): ").strip()
+            user_input = input("\nSelect two numbers separated by a comma (e.g., 1,2) or '0' to skip: ").strip()
+
+            # Opción para omitir pulsando '0' o dando a Enter
+            if user_input in ("", "0"):
+                print("⏩ Comparison skipped by user.")
+                return None
+
             indices = [int(x.strip()) for x in user_input.split(",")]
 
             # Check that exactly two items were entered
             if len(indices) != 2:
-                print("❌ Please enter exactly two numbers separated by a comma (e.g., 1,2).")
+                print("❌ Please enter exactly two numbers separated by a comma (e.g., 1,2)  or '0' to skip.")
                 continue
 
             # Check if user picked the exact same option twice
@@ -132,10 +137,10 @@ def ask_comparison_targets(selected_demands: list[int]) -> tuple[int, int] | Non
                 print(f"✅ Selected for cross-analysis: '{translate_indicator(model_a_id)}' vs '{translate_indicator(model_b_id)}'")
                 return model_a_id, model_b_id
 
-            print(f"❌ Selection out of range. Please enter valid option numbers (1 to {len(selected_demands)}).")
+            print(f"❌ Selection out of range. Please enter valid option numbers (1 to {len(selected_demands)})  or '0' to skip.")
 
         except ValueError:
-            print("❌ Input format error. Please use numbers separated by commas only (e.g., 1,2).")
+            print("❌ Input format error. Please use numbers separated by commas only (e.g., 1,2)  or '0' to skip.")
 
 
 def display_anomalies_summary(anomalies: dict[str, list], demand_stats: dict) -> None:
