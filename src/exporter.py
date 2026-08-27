@@ -10,13 +10,15 @@ from openpyxl.utils import get_column_letter
 
 from config.settings import (
     DEFAULT_OUTPUT_DIR,
+    DEMAND_INDICATOR_IDS,
     EXCEL_BORDER_COLOR,
     EXCEL_PRIMARY_FILL_COLOR,
     EXCEL_PRIMARY_SECTION_KEYWORDS,
     EXCEL_SECONDARY_FILL_COLOR,
     EXCEL_SECTION_GAP,
+    PRICE_INDICATOR_IDS
 )
-from src.utils import translate_indicator
+from src.utils import translate_indicator, translate_geography
 
 # OpenPyXL Style Objects initialized from centralized settings
 PRIMARY_FILL = PatternFill(start_color=EXCEL_PRIMARY_FILL_COLOR, end_color=EXCEL_PRIMARY_FILL_COLOR, fill_type="solid")
@@ -420,12 +422,38 @@ def export_to_excel(
         sheet_name = "Clean Data"
         df_clean = df.copy()
 
-        if "datetime" in df_clean.columns:
-            df_clean["datetime"] = pd.to_datetime(df_clean["datetime"]).dt.strftime("%Y-%m-%d %H:%M:%S")
+        # 1. Define strict indicator hierarchy ordering
+        priority_order = DEMAND_INDICATOR_IDS + PRICE_INDICATOR_IDS
 
+        # 2. Map Categorical ordering and translate indicator names via utils
         if "indicator_id" in df_clean.columns:
-            df_clean["name"] = df_clean["indicator_id"].map(lambda x: translate_indicator(indicator_id=x))
+            df_clean["indicator_id"] = pd.Categorical(
+                df_clean["indicator_id"], categories=priority_order, ordered=True
+            )
+            df_clean["name"] = df_clean["indicator_id"].map(
+                lambda x: translate_indicator(indicator_id=x)
+            )
 
+        # 3. Translate geographic names to English via utils
+        if "geo_id" in df_clean.columns:
+            df_clean["geo_name"] = df_clean["geo_id"].map(
+                lambda x: translate_geography(geo_id=x)
+            )
+
+        # 4. Parse datetime column for chronological sorting
+        if "datetime" in df_clean.columns:
+            df_clean["datetime"] = pd.to_datetime(df_clean["datetime"])
+
+        # 5. Apply multi-level sorting (Primary: Indicator priority, Secondary: Chronological timestamp)
+        sort_cols = [col for col in ["indicator_id", "datetime"] if col in df_clean.columns]
+        if sort_cols:
+            df_clean = df_clean.sort_values(by=sort_cols, ascending=[True, True])
+
+        # 6. Format datetime back to string for Excel export
+        if "datetime" in df_clean.columns:
+            df_clean["datetime"] = df_clean["datetime"].dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        # 7. Select required columns and write to Excel
         cols_to_keep = ["indicator_id", "name", "geo_id", "geo_name", "datetime", "value"]
         df_export = df_clean[[col for col in cols_to_keep if col in df_clean.columns]]
 
