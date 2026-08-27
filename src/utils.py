@@ -3,24 +3,45 @@
 from config.settings import DEMAND_INDICATOR_IDS,GEOGRAPHY_TRANSLATIONS, INDICATOR_TRANSLATIONS, PRICE_INDICATOR_IDS
 
 
-def translate_indicator(indicator_id: int, geo_id: int | None = None, show_geo: bool = False) -> str:
-    """Translate ESIOS indicator and geographic IDs into English display names.
+def translate_indicator(indicator_id: int) -> str:
+    """Translate ESIOS numerical indicator ID into English display name.
+
+    Args:
+        indicator_id (int): ESIOS numerical indicator ID.
+
+    Returns:
+        str: English indicator name (e.g., "Spot Market Price").
+    """
+    return INDICATOR_TRANSLATIONS.get(indicator_id, f"Indicator {indicator_id}")
+
+
+def translate_geography(geo_id: int) -> str:
+    """Translate ESIOS numerical geographic ID into English display name.
+
+    Args:
+        geo_id (int): ESIOS numerical geographic region ID.
+
+    Returns:
+        str: English region name (e.g., "Peninsula", "Spain").
+    """
+    return GEOGRAPHY_TRANSLATIONS.get(geo_id, f"Geo {geo_id}")
+
+
+def translate_full_indicator(indicator_id: int, geo_id: int | None = None) -> str:
+    """Translate ESIOS indicator and geographic IDs into a full formatted English name.
 
     Args:
         indicator_id (int): ESIOS numerical indicator ID.
         geo_id (int | None): ESIOS numerical geographic region ID.
-        show_geo (bool): If True, appends the regional name in parentheses.
 
     Returns:
-        str: English indicator name (e.g., "Spot Market Price (Spain)").
+        str: Formatted English display string (e.g., "Spot Market Price (Spain)").
     """
-    english_name = INDICATOR_TRANSLATIONS.get(indicator_id, f"Indicator {indicator_id}")
-
-    if not show_geo or geo_id is None:
-        return english_name
-
-    english_geo = GEOGRAPHY_TRANSLATIONS.get(geo_id, f"Geo {geo_id}")
-    return f"{english_name} ({english_geo})"
+    name = translate_indicator(indicator_id)
+    if geo_id is not None:
+        geo_name = translate_geography(geo_id)
+        return f"{name} ({geo_name})"
+    return name
 
 
 def sort_indicators_by_priority(indicator_ids: list[int], is_demand: bool = True) -> list[int]:
