@@ -15,7 +15,7 @@ from config.settings import (
     GLOBAL_GEO_ORDER,
     PRICE_INDICATOR_IDS
 )
-from src.utils import translate_indicator
+from src.utils import translate_full_indicator, translate_indicator
 
 
 def _plot_time_series(
@@ -87,7 +87,11 @@ def _plot_time_series(
 
         group_sorted = group_df.sort_values("datetime")
 
-        legend_label = translate_indicator(indicator_id=ind_id, geo_id=geo_id, show_geo=has_multiple_geos)
+        # Dynamic label formatting based on whether multiple geographies are present
+        if has_multiple_geos:
+            legend_label = translate_full_indicator(indicator_id=ind_id, geo_id=geo_id)
+        else:
+            legend_label = translate_indicator(indicator_id=ind_id)
 
         name_spanish = group_df["name"].iloc[0] if "name" in group_df.columns else ""
         geo_name = group_df["geo_name"].iloc[0] if "geo_name" in group_df.columns else ""

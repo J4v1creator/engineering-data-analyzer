@@ -8,7 +8,7 @@ from config.settings import (
     GLOBAL_GEO_ORDER,
     PRICE_INDICATOR_IDS,
     )
-from src.utils import translate_indicator
+from src.utils import translate_full_indicator, translate_indicator
 
 
 def calculate_demand_statistics(df_demands: pd.DataFrame, selected_demands: list[int] | None = None) -> dict[str, dict[str, float | str]]:
@@ -48,7 +48,11 @@ def calculate_demand_statistics(df_demands: pd.DataFrame, selected_demands: list
         peak_time = max_row["datetime"]
         peak_str = peak_time.strftime("%Y-%m-%d %H:%M") if hasattr(peak_time, "strftime") else str(peak_time)
 
-        label = translate_indicator(indicator_id=ind_id, geo_id=geo_id, show_geo=has_multiple_geos)
+        # Dynamic label formatting based on whether multiple geographies are present
+        if has_multiple_geos:
+            label = translate_full_indicator(indicator_id=ind_id, geo_id=geo_id)
+        else:
+            label = translate_indicator(indicator_id=ind_id)
 
         stats[label] = {
             "mean": float(values.mean()),
@@ -110,8 +114,11 @@ def calculate_price_statistics(df_prices: pd.DataFrame, selected_prices: list[in
         max_str = max_time.strftime("%Y-%m-%d %H:%M") if hasattr(max_time, "strftime") else str(max_time)
         min_str = min_time.strftime("%Y-%m-%d %H:%M") if hasattr(min_time, "strftime") else str(min_time)
 
-        # Generate translated label (includes geography region if applicable)
-        series_name = translate_indicator(indicator_id=price_id, geo_id=geo_id, show_geo=has_multiple_geos)
+        # Dynamic label formatting based on whether multiple geographies are present
+        if has_multiple_geos:
+            series_name = translate_full_indicator(indicator_id=price_id, geo_id=geo_id)
+        else:
+            series_name = translate_indicator(indicator_id=price_id)
 
         stats[series_name] = {
             "max": float(values.max()),
@@ -244,7 +251,11 @@ def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY
         anomaly_rows = group_df[z_scores.abs() > threshold]
 
         if not anomaly_rows.empty:
-            series_label = translate_indicator(indicator_id=ind_id, geo_id=geo_id, show_geo=has_multiple_geos)
+            # Dynamic label formatting based on whether multiple geographies are present
+            if has_multiple_geos:
+                series_label = translate_full_indicator(indicator_id=ind_id, geo_id=geo_id)
+            else:
+                series_label = translate_indicator(indicator_id=ind_id)
             geo_name = group_df["geo_name"].iloc[0] if "geo_name" in group_df.columns else "Unknown"
 
             anomalies_report[series_label] = []
