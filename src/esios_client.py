@@ -96,6 +96,8 @@ def _fetch_indicator_from_api(indicator_id: int, start_iso: str, end_iso: str, a
         else:
             indicator_data = data.get("indicator", {}) if isinstance(data, dict) else {}
 
+        raw_name = indicator_data.get("name", "Desconocido")
+
         values = indicator_data.get("values", []) if isinstance(indicator_data, dict) else []
 
         records = []
@@ -109,7 +111,7 @@ def _fetch_indicator_from_api(indicator_id: int, start_iso: str, end_iso: str, a
 
             records.append({
                 "indicator_id": int(indicator_id),
-                "name": translated_name,
+                "name": str(raw_name),
                 "geo_id": int(geo_id_val) if geo_id_val is not None else 0,
                 "geo_name": str(geo_name_val) if geo_name_val else "Unknown",
                 "value": float(raw_val),
