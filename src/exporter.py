@@ -457,7 +457,13 @@ def export_to_excel(
         cols_to_keep = ["indicator_id", "name", "geo_id", "geo_name", "datetime", "value"]
         df_export = df_clean[[col for col in cols_to_keep if col in df_clean.columns]]
 
-        df_export.to_excel(writer, sheet_name=sheet_name, index=False)
+        _write_section(
+            writer=writer,
+            sheet_name=sheet_name,
+            title="CLEAN & PROCESSED MARKET DATA",
+            df_data=df_export,
+            start_row=1,
+        )
 
     # Post-process formatting with OpenPyXL
     _apply_workbook_styles(file_path)
