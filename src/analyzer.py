@@ -4,9 +4,7 @@ import pandas as pd
 
 from config.settings import (
     DEFAULT_ANOMALY_THRESHOLD,
-    DEMAND_INDICATOR_IDS,
     GLOBAL_GEO_ORDER,
-    PRICE_INDICATOR_IDS,
 )
 from src.utils import format_datetime, translate_full_indicator, translate_indicator
 
@@ -26,15 +24,14 @@ def calculate_demand_statistics(df_demands: pd.DataFrame, selected_demands: list
 
     print("\n🔍 Calculating power demand statistics...")
 
-    # Determine which demand IDs to process (preserving configured priority order)
-    target_ids = selected_demands if selected_demands else DEMAND_INDICATOR_IDS
-    df_filtered = df_demands[df_demands["indicator_id"].isin(target_ids)].copy()
+    # Use the selected IDs directly
+    df_filtered = df_demands[df_demands["indicator_id"].isin(selected_demands)].copy()
 
     if df_filtered.empty:
         return {}
 
-    # Sort DataFrame rows based on DEMAND_INDICATOR_IDS ordering
-    df_filtered["indicator_id"] = pd.Categorical(df_filtered["indicator_id"], categories=target_ids, ordered=True)
+    # Ensure categorical ordering based on selected IDs
+    df_filtered["indicator_id"] = pd.Categorical(df_filtered["indicator_id"], categories=selected_demands, ordered=True)
     df_filtered = df_filtered.sort_values("indicator_id")
 
     has_multiple_geos = df_filtered["geo_id"].nunique() > 1
@@ -76,15 +73,14 @@ def calculate_price_statistics(df_prices: pd.DataFrame, selected_prices: list[in
 
     print("\n🔍 Calculating energy price statistics...")
 
-    # Determine which price IDs to process (preserving configured priority order)
-    target_ids = selected_prices if selected_prices else PRICE_INDICATOR_IDS
-    df_filtered = df_prices[df_prices["indicator_id"].isin(target_ids)].copy()
+    # Use the selected IDs directly
+    df_filtered = df_prices[df_prices["indicator_id"].isin(selected_prices)].copy()
 
     if df_filtered.empty:
         return {}
 
-    # Sort DataFrame rows based on PRICE_INDICATOR_IDS ordering
-    df_filtered["indicator_id"] = pd.Categorical(df_filtered["indicator_id"], categories=target_ids, ordered=True)
+    # Ensure categorical ordering based on selected IDs
+    df_filtered["indicator_id"] = pd.Categorical(df_filtered["indicator_id"], categories=selected_prices, ordered=True)
     df_filtered["geo_id"] = pd.Categorical(df_filtered["geo_id"], categories=GLOBAL_GEO_ORDER, ordered=True)
     df_filtered = df_filtered.sort_values(["indicator_id", "geo_id"])
 
@@ -120,7 +116,7 @@ def compare_demand_models(df_demands: pd.DataFrame, comparison_targets: tuple[in
     """Performs comparative analysis dynamically between two selected demand series IDs.
 
     Args:
-        df (pd.DataFrame): Filtered energy DataFrame.
+        df_demands (pd.DataFrame): Filtered demand DataFrame.
         targets (tuple[int, int] | list[int] | None): Pair of demand indicator_ids (id_a, id_b).
 
     Returns:
@@ -193,15 +189,12 @@ def detect_demand_anomalies(df_demands: pd.DataFrame, threshold: float = DEFAULT
     """Detects abnormal spikes or drops in demand series using Z-Score methodology.
 
     Args:
-        df (pd.DataFrame): Filtered demand DataFrame.
+        df_demands (pd.DataFrame): Filtered demand DataFrame.
         threshold (float): Z-score cut-off threshold.
 
     Returns:
         dict[str, list[dict]]: Dictionary mapping demand labels to lists of anomaly events.
     """
-    if df_demands.empty:
-        return {}
-
     # Early exit if DataFrame is empty or missing required columns
     if df_demands.empty or "indicator_id" not in df_demands.columns or "geo_id" not in df_demands.columns:
         print("⚠️ [ANOMALIES] Empty dataset or missing required columns. Skipping analysis.")
@@ -212,10 +205,11 @@ def detect_demand_anomalies(df_demands: pd.DataFrame, threshold: float = DEFAULT
 
     df_filtered = df_demands.copy()
 
-    # Apply Categorical ordering ONLY for demand indicators
-    df_filtered["indicator_id"] = pd.Categorical(df_filtered["indicator_id"], categories=DEMAND_INDICATOR_IDS, ordered=True)
+    # Determine categories from unique values present in the input DataFrame
+    present_indicators = df_filtered["indicator_id"].unique()
+    df_filtered.loc[:, "indicator_id"] = pd.Categorical(df_filtered["indicator_id"], categories=present_indicators, ordered=True)
 
-    # Sort rows based on demand configuration priority
+    # Sort rows based on categorical priority
     df_filtered = df_filtered.sort_values("indicator_id")
 
     has_multiple_geos = df_filtered["geo_id"].nunique() > 1

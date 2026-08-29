@@ -45,17 +45,16 @@ def translate_full_indicator(indicator_id: int, geo_id: int | None = None, has_m
     return name
 
 
-def sort_indicators_by_priority(indicator_ids: list[int], is_demand: bool = True) -> list[int]:
-    """Sort a list of indicator IDs based on the predefined priority order in settings.
+def sort_indicators_by_priority(indicator_ids: list[int], priority_order: list[int]) -> list[int]:
+    """Sort a list of indicator IDs based on a provided priority order list.
 
     Args:
         indicator_ids (list[int]): List of raw indicator IDs to sort.
-        is_demand (bool): True if sorting demand indicators, False for prices.
+        priority_order (list[int]): Reference list indicating the priority hierarchy.
 
     Returns:
         list[int]: Sorted list of indicator IDs.
     """
-    priority_order = DEMAND_INDICATOR_IDS if is_demand else PRICE_INDICATOR_IDS
     return sorted(indicator_ids, key=lambda x: priority_order.index(x) if x in priority_order else 999)
 
 

@@ -22,6 +22,7 @@ from src.database import init_db
 from src.esios_client import get_energy_data
 from src.exporter import export_to_excel
 from src.report import generate_text_report
+from src.utils import sort_indicators_by_priority
 from src.validator import validate_dataset
 from src.visualizer import plot_energy_demand, plot_energy_price
 
@@ -53,6 +54,9 @@ def main() -> None:
 
         # Input: Prompt user for indicator selections (IDs)
         selected_demands, selected_prices = get_user_indicator_selection(available_demands, available_prices)
+
+        selected_demands = sort_indicators_by_priority(selected_demands, DEMAND_INDICATOR_IDS)
+        selected_prices = sort_indicators_by_priority(selected_prices, PRICE_INDICATOR_IDS)
 
         # Consolidate all user selection choices for data retrieval
         selected_indicators = selected_demands + selected_prices
