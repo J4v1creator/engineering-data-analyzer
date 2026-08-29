@@ -222,7 +222,7 @@ def generate_text_report(
     effective_end = end_dt if end_dt else df["datetime"].max()
 
     fmt = "%Y%m%d_%H%M" if effective_start.date() == effective_end.date() else "%Y%m%d"
-    filename = f"report_energy_demand_{effective_start.strftime(fmt)}_to_{effective_end.strftime(fmt)}.txt"
+    filename = f"summary_energy_analysis_{effective_start.strftime(fmt)}_to_{effective_end.strftime(fmt)}.txt"
     output_path = out_dir_path / filename
 
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

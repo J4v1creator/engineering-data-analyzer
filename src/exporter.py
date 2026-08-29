@@ -397,7 +397,7 @@ def export_to_excel(
     # Determine dynamic filename based on temporal dataset range
     min_dt, max_dt = df["datetime"].min(), df["datetime"].max()
     fmt = "%Y%m%d_%H%M" if min_dt.date() == max_dt.date() else "%Y%m%d"
-    filename = f"energy_analysis_{min_dt.strftime(fmt)}_to_{max_dt.strftime(fmt)}.xlsx"
+    filename = f"dataset_export_{min_dt.strftime(fmt)}_to_{max_dt.strftime(fmt)}.xlsx"
     file_path = out_dir_path / filename
 
     # Create Excel Writer

@@ -394,7 +394,7 @@ def generate_pdf_report(
 
     min_dt, max_dt = df["datetime"].min(), df["datetime"].max()
     fmt = "%Y%m%d_%H%M" if min_dt.date() == max_dt.date() else "%Y%m%d"
-    filename = f"report_energy_demand_{min_dt.strftime(fmt)}_to_{max_dt.strftime(fmt)}.pdf"
+    filename = f"report_energy_analysis_{min_dt.strftime(fmt)}_to_{max_dt.strftime(fmt)}.pdf"
     file_path = out_dir_path / filename
 
     doc = SimpleDocTemplate(
