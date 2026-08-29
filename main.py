@@ -21,7 +21,8 @@ from src.cli import (
 from src.database import init_db
 from src.esios_client import get_energy_data
 from src.exporter import export_to_excel
-from src.report import generate_text_report
+from src.pdf_reporter import generate_pdf_report
+from src.text_reporter import generate_text_report
 from src.utils import sort_indicators_by_priority
 from src.validator import validate_dataset
 from src.visualizer import plot_energy_demand, plot_energy_price
@@ -93,16 +94,19 @@ def main() -> None:
 
         # Output: Generate independent visualization charts for Demands and Prices
         saved_plots = []
+        chart_paths = []
 
         # 1. Plot Energy Demands (if any were selected)
         if not df_demands.empty:
             demand_plot_path = plot_energy_demand(df_demands)
             saved_plots.append(f"📊 Demand Plot: {demand_plot_path}")
+            chart_paths.append(demand_plot_path)
 
         # 2. Plot Energy Prices (if any were selected)
         if not df_prices.empty:
             price_plot_path = plot_energy_price(df_prices)
             saved_plots.append(f"💶 Price Plot:  {price_plot_path}")
+            chart_paths.append(price_plot_path)
 
         # Output: Generate text files detailing consolidated metrics and performance history
         report_path = generate_text_report(df_filtered, start_dt, end_dt, demand_stats, price_stats, comp_stats, anomalies, market_volume_stats)
@@ -110,12 +114,16 @@ def main() -> None:
         # Output: Export all relevant datasets, metrics, and visualizations to a single Excel workbook
         excel_path = export_to_excel(df_filtered, demand_stats, price_stats, comp_stats, anomalies, market_volume_stats)
 
+        # Output: Export a standalone multi-section PDF report with embedded charts
+        pdf_path = generate_pdf_report(df_filtered, demand_stats, price_stats, comp_stats, anomalies, market_volume_stats, chart_paths)
+
         print("\n==================================================")
         print("🎉 [SUCCESS] Pipeline executed perfectly!")
         for plot_path in saved_plots:
             print(f"  ↳ {plot_path}")
-        print(f"  ↳ 📄 Report saved to: {report_path}")
+        print(f"  ↳ 📄 Text Report saved to: {report_path}")
         print(f"  ↳ 📊 Excel workbook saved to: {excel_path}")
+        print(f"  ↳ 📕 PDF Report saved to: {pdf_path}")
         print("==================================================")
 
     except KeyboardInterrupt:

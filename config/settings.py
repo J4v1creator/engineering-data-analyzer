@@ -152,3 +152,16 @@ EXCEL_PRIMARY_SECTION_KEYWORDS = {
     "DETECTED STATISTICAL ANOMALIES & OUTLIERS",
     "CLEAN & PROCESSED MARKET DATA",
 }
+
+# --- Pdf Export Styling Configurations ---
+PDF_PAGE_SIZE = "A4"
+PDF_MARGIN = 36  # Dots (approx. 0.5 inches)
+
+# Color palette for PDF (Hexadecimal or RGB)
+PDF_PRIMARY_COLOR = "#1F4E78"    # Dark blue for titles/headings
+PDF_SECONDARY_COLOR = "#595959"  # Gray for subtitles and borders
+PDF_BG_LIGHT_COLOR = "#F2F2F2"   # Light gray for alternating rows in tables
+
+# Default dimensions for embedded graphics (in inches or points)
+PDF_CHART_WIDTH = 500
+PDF_CHART_HEIGHT = 250
