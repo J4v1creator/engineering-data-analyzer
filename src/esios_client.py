@@ -1,64 +1,54 @@
 """ESIOS API HTTP gateway, regional data fetching, and intelligent caching orchestration."""
 
-from datetime import datetime, timedelta
-import os
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from dotenv import load_dotenv
 import pandas as pd
 import requests
 
+from config.settings import ESIOS_API_TOKEN
 from src.database import load_data_by_ids, save_dataframe
 from src.utils import translate_indicator
 
-# Load environment variables from .env file
-load_dotenv()
 
-
-def _is_cache_complete(df_cached: pd.DataFrame, selected_indicators: list[int], start_dt: datetime, end_dt: datetime) -> bool:
-    """Evaluates whether the local database cache strictly and fully covers requested metrics and temporal range.
+def _is_indicator_cached(
+    df_cached: pd.DataFrame, indicator_id: int, start_dt: datetime, end_dt: datetime
+) -> bool:
+    """Evaluates whether the local database cache covers a specific indicator for the time range.
 
     Args:
         df_cached (pd.DataFrame): DataFrame containing cached records.
-        selected_indicators (list[int]): List of indicator IDs to verify.
+        indicator_id (int): Indicator ID to verify.
         start_dt (datetime): Start datetime of requested range.
         end_dt (datetime): End datetime of requested range.
 
     Returns:
-        bool: True if all selected indicators are present and strictly cover the time range.
+        bool: True if the indicator is present and strictly covers the time range.
     """
     if df_cached.empty or "indicator_id" not in df_cached.columns:
         return False
 
-    cached_ids = set(df_cached["indicator_id"].unique())
-    if not set(selected_indicators).issubset(cached_ids):
+    df_ind = df_cached[df_cached["indicator_id"] == indicator_id]
+    if df_ind.empty:
         return False
 
-    # Standardize tz comparison to Europe/Madrid
     madrid_tz = ZoneInfo("Europe/Madrid")
     if start_dt.tzinfo is None:
         start_dt = start_dt.replace(tzinfo=madrid_tz)
     if end_dt.tzinfo is None:
         end_dt = end_dt.replace(tzinfo=madrid_tz)
 
-    # Strict temporal verification for each individual indicator
-    for indicator_id in selected_indicators:
-        df_ind = df_cached[df_cached["indicator_id"] == indicator_id]
-        if df_ind.empty:
-            return False
+    cached_dates = pd.to_datetime(df_ind["datetime"]).dt.tz_convert("Europe/Madrid")
+    min_cached = cached_dates.min()
+    max_cached = cached_dates.max()
 
-        cached_dates = pd.to_datetime(df_ind["datetime"], utc=True).dt.tz_convert("Europe/Madrid")
-        min_cached = cached_dates.min()
-        max_cached = cached_dates.max()
-
-        # Strict boundary check: fails if cache starts later or ends earlier than requested
-        if min_cached > start_dt or max_cached < end_dt:
-            return False
-
-    return True
+    # Strict boundary check
+    return min_cached <= start_dt and max_cached >= end_dt
 
 
-def _fetch_indicator_from_api(indicator_id: int, start_iso: str, end_iso: str, api_token: str) -> pd.DataFrame:
+def _fetch_indicator_from_api(
+    indicator_id: int, start_iso: str, end_iso: str, api_token: str
+) -> pd.DataFrame:
     """Issues an HTTP request to e·sios API for a single indicator and parses response records.
 
     Args:
@@ -69,9 +59,6 @@ def _fetch_indicator_from_api(indicator_id: int, start_iso: str, end_iso: str, a
 
     Returns:
         pd.DataFrame: DataFrame containing fetched indicator records.
-
-    Raises:
-        RuntimeError: If the API HTTP request fails.
     """
     headers = {
         "Accept": "application/json; application/vnd.esios-api-v1+json",
@@ -83,21 +70,19 @@ def _fetch_indicator_from_api(indicator_id: int, start_iso: str, end_iso: str, a
     url = f"https://api.esios.ree.es/indicators/{indicator_id}"
 
     translated_name = translate_indicator(indicator_id=indicator_id)
-    print(f"📥 Fetching '{translated_name}' (ID: {indicator_id}) from e·sios API...")
+    print(f"🌐 Requesting '{translated_name}' (ID: {indicator_id}) from e·sios API...")
 
     try:
         response = requests.get(url, headers=headers, params=params, timeout=15)
         response.raise_for_status()
         data = response.json()
 
-        # Support dictionary structures returned by ESIOS API
         if isinstance(data, list) and len(data) > 0:
             indicator_data = data[0].get("indicator", {})
         else:
             indicator_data = data.get("indicator", {}) if isinstance(data, dict) else {}
 
         raw_name = indicator_data.get("name", "Desconocido")
-
         values = indicator_data.get("values", []) if isinstance(indicator_data, dict) else []
 
         records = []
@@ -119,22 +104,22 @@ def _fetch_indicator_from_api(indicator_id: int, start_iso: str, end_iso: str, a
             })
 
         if not records:
-            print(f"⚠️ Warning: No data returned from API for ID {indicator_id} in this time range.")
+            print(f"⚠️ [API WARNING] No data returned for ID {indicator_id} in this time range.")
             return pd.DataFrame()
 
         df_indicator = pd.DataFrame(records)
-
-        # Standardize timezone alignment to Europe/Madrid
         df_indicator["datetime"] = pd.to_datetime(df_indicator["datetime"], utc=True)
-
         return df_indicator
 
     except requests.exceptions.RequestException as e:
-        raise RuntimeError(f"Failed to fetch indicator ID {indicator_id} from e·sios API: {e}")
+        print(f"❌ [API ERROR] Failed to fetch indicator ID {indicator_id}: {e}")
+        return pd.DataFrame()
 
 
-def get_energy_data(selected_indicators: list[int], start_dt: datetime, end_dt: datetime) -> pd.DataFrame:
-    """Orchestrates local database retrieval and API fetching fallback for energy metrics.
+def get_energy_data(
+    selected_indicators: list[int], start_dt: datetime, end_dt: datetime
+) -> pd.DataFrame:
+    """Orchestrates local database retrieval and API fetching fallback per indicator.
 
     Args:
         selected_indicators (list[int]): List of indicator IDs to retrieve.
@@ -147,11 +132,10 @@ def get_energy_data(selected_indicators: list[int], start_dt: datetime, end_dt: 
     Raises:
         ValueError: If ESIOS_API_TOKEN is missing or no data could be loaded.
     """
-    api_token = os.getenv("ESIOS_API_TOKEN")
-    if not api_token:
-        raise ValueError("Critical Error: 'ESIOS_API_TOKEN' is missing in environment or .env file.")
+    token = ESIOS_API_TOKEN
+    if not token:
+        raise ValueError("Critical Error: 'ESIOS_API_TOKEN' is missing in environment or settings.")
 
-    # Assign default local timezone (Europe/Madrid)
     madrid_tz = ZoneInfo("Europe/Madrid")
     if start_dt.tzinfo is None:
         start_dt = start_dt.replace(tzinfo=madrid_tz)
@@ -161,28 +145,31 @@ def get_energy_data(selected_indicators: list[int], start_dt: datetime, end_dt: 
     start_utc_iso = start_dt.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ")
     end_utc_iso = end_dt.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # Step 1: Query local SQLite cache
+    # Step 1: Pre-load existing cache for requested range
     df_cached = load_data_by_ids(selected_indicators, start_utc_iso, end_utc_iso)
 
-    if _is_cache_complete(df_cached, selected_indicators, start_dt, end_dt):
-        print("📦 Data successfully loaded from local SQLite database cache.")
-        return df_cached
+    indicators_to_fetch = []
+    for ind_id in selected_indicators:
+        if _is_indicator_cached(df_cached, ind_id, start_dt, end_dt):
+            translated = translate_indicator(ind_id)
+            print(f"📦 Indicator '{translated}' (ID: {ind_id}) loaded from local cache.")
+        else:
+            indicators_to_fetch.append(ind_id)
 
-    print("🌐 Local cache incomplete or missing hours. Requesting range from e·sios API...")
+    # Step 2: Fetch only missing indicators from e·sios API
+    if indicators_to_fetch:
+        fetched_frames = []
+        for indicator_id in indicators_to_fetch:
+            df_ind = _fetch_indicator_from_api(indicator_id, start_utc_iso, end_utc_iso, token)
+            if not df_ind.empty:
+                fetched_frames.append(df_ind)
 
-    # Step 2: Fetch missing data from API
-    fetched_frames = []
-    for indicator_id in selected_indicators:
-        df_ind = _fetch_indicator_from_api(indicator_id, start_utc_iso, end_utc_iso, api_token)
-        if not df_ind.empty:
-            fetched_frames.append(df_ind)
+        # Step 3: Persist newly fetched metrics to database
+        if fetched_frames:
+            combined_df = pd.concat(fetched_frames, ignore_index=True)
+            save_dataframe(combined_df)
 
-    # Step 3: Persist fetched data to SQLite cache (this automatically updates last_accessed_at)
-    if fetched_frames:
-        combined_fetched_df = pd.concat(fetched_frames, ignore_index=True)
-        save_dataframe(combined_fetched_df)
-
-    # Step 4: Reload consolidated dataset from DB
+    # Step 4: Load complete consolidated dataset from database
     final_df = load_data_by_ids(selected_indicators, start_utc_iso, end_utc_iso)
 
     if final_df.empty:

@@ -10,8 +10,8 @@ def get_user_indicator_selection(demands_list: list[int], prices_list: list[int]
     """Displays a unified menu for selecting both Demand and Price indicators.
 
     Args:
-        demands_list (list[int]): Available demand indicator IDs (ordered by priority).
-        prices_list (list[int]): Available price indicator IDs (ordered by priority).
+        demands_list (list[int]): Available demand indicator IDs.
+        prices_list (list[int]): Available price indicator IDs.
 
     Returns:
         tuple[list[int], list[int]]: Selected demand IDs and selected price IDs.
@@ -35,8 +35,8 @@ def get_user_indicator_selection(demands_list: list[int], prices_list: list[int]
     # Print Prices Section
     print("\n--- Energy Prices (€/MWh) ---")
     for idx, price_id in enumerate(prices_list, start=num_demands + 1):
-        english_display = translate_indicator(indicator_id=price_id)
-        print(f"  [{idx}] {english_display}")
+        display_name = translate_indicator(indicator_id=price_id)
+        print(f"  [{idx}] {display_name}")
 
     # Quick Actions
     all_option_idx = total_items + 1
@@ -46,35 +46,39 @@ def get_user_indicator_selection(demands_list: list[int], prices_list: list[int]
 
     while True:
         try:
-            user_input = input("\nEnter numbers separated by commas (e.g., '1,2' for demands, '5,6' for prices, or '0' for none): ").strip()
+            prompt = f"\nEnter options separated by commas (Press ENTER for ALL, '0' to exit): "
+            user_input = input(prompt).strip()
 
             if user_input == "0":
                 print("⏩ No indicators selected.")
                 return [], []
 
+            # Default to ALL if user presses enter or types the 'All' index
             if user_input == "" or user_input == str(all_option_idx):
                 print("🔄 Selecting all available demands and prices...")
                 return demands_list, prices_list
 
-            selected_indices = [int(x.strip()) for x in user_input.split(",")]
+            # Parse indices and remove duplicates while preserving order
+            raw_indices = [int(x.strip()) for x in user_input.split(",") if x.strip()]
+            selected_indices = list(dict.fromkeys(raw_indices))
 
             if not all(1 <= idx <= total_items for idx in selected_indices):
-                print("❌ Invalid selection. Please enter valid option numbers from the menu.")
+                print(f"❌ Invalid selection. Please enter numbers between 1 and {total_items}.")
                 continue
 
-            # Separate selected indices into demands and prices
-            selected_demands = [demands_list[idx - 1] for idx in selected_indices if idx <= num_demands]
-            selected_prices = [prices_list[idx - num_demands - 1] for idx in selected_indices if idx > num_demands]
+            # Map selection
+            selected_demands = [demands_list[i - 1] for i in selected_indices if i <= num_demands]
+            selected_prices = [prices_list[i - num_demands - 1] for i in selected_indices if i > num_demands]
 
             if selected_demands:
-                english_demands = [translate_indicator(indicator_id=d) for d in selected_demands]
-                print(f"✅ Selected Demands: {', '.join(english_demands)}")
+                demand_names = [translate_indicator(d) for d in selected_demands]
+                print(f"✅ Selected Demands: {', '.join(demand_names)}")
             else:
                 print("⏩ No demands selected.")
 
             if selected_prices:
-                english_prices = [translate_indicator(indicator_id=p) for p in selected_prices]
-                print(f"✅ Selected Prices:  {', '.join(english_prices)}")
+                price_names = [translate_indicator(p) for p in selected_prices]
+                print(f"✅ Selected Prices:  {', '.join(price_names)}")
             else:
                 print("⏩ No prices selected.")
 
@@ -85,14 +89,13 @@ def get_user_indicator_selection(demands_list: list[int], prices_list: list[int]
 
 
 def ask_comparison_targets(selected_demands: list[int]) -> tuple[int, int] | None:
-    """Prompts the user to select two distinct demand types for cross-analysis
-    or skip the comparison entirely.
+    """Prompts the user to select two distinct demand types for cross-analysis.
 
     Args:
         selected_demands (list[int]): List of demand IDs selected by the user.
 
     Returns:
-        tuple[int, int] | None: IDs of the two distinct demand types selected, or None if skipped/insufficient.
+        tuple[int, int] | None: Demand IDs to compare, or None if skipped.
 
     Raises:
         ValueError: If the user inputs invalid option numbers or formats.
@@ -101,23 +104,22 @@ def ask_comparison_targets(selected_demands: list[int]) -> tuple[int, int] | Non
         return None
 
     print("\n🔍 --- ADVANCED DEMAND COMPARISON SELECTION ---")
-    print("You selected multiple demands. Which two would you like to cross-analyze?")
+    print("Which two demand series would you like to cross-analyze?")
 
     for idx, demand_id in enumerate(selected_demands, start=1):
-        english_display = translate_indicator(indicator_id=demand_id)
-        print(f"  [{idx}] {english_display}")
-    print("  [0] Skip comparison (Do not compare)")
+        display_name = translate_indicator(indicator_id=demand_id)
+        print(f"  [{idx}] {display_name}")
+    print("  [0] Skip comparison")
 
     while True:
         try:
-            user_input = input("\nSelect two numbers separated by a comma (e.g., 1,2) or '0' to skip: ").strip()
+            user_input = input("\nEnter two numbers (e.g., 1,2) or '0' to skip: ").strip()
 
-            # Opción para omitir pulsando '0' o dando a Enter
             if user_input in ("", "0"):
-                print("⏩ Comparison skipped by user.")
+                print("⏩ Comparison skipped.")
                 return None
 
-            indices = [int(x.strip()) for x in user_input.split(",")]
+            indices = [int(x.strip()) for x in user_input.split(",") if x.strip()]
 
             # Check that exactly two items were entered
             if len(indices) != 2:
@@ -131,11 +133,11 @@ def ask_comparison_targets(selected_demands: list[int]) -> tuple[int, int] | Non
 
             # Validate that both indices are within the valid range
             if all(1 <= idx <= len(selected_demands) for idx in indices):
-                model_a_id = selected_demands[indices[0] - 1]
-                model_b_id = selected_demands[indices[1] - 1]
+                id_a = selected_demands[indices[0] - 1]
+                id_b = selected_demands[indices[1] - 1]
 
-                print(f"✅ Selected for cross-analysis: '{translate_indicator(model_a_id)}' vs '{translate_indicator(model_b_id)}'")
-                return model_a_id, model_b_id
+                print(f"✅ Selected for cross-analysis: '{translate_indicator(id_a)}' vs '{translate_indicator(id_b)}'")
+                return id_a, id_b
 
             print(f"❌ Selection out of range. Please enter valid option numbers (1 to {len(selected_demands)})  or '0' to skip.")
 
@@ -147,30 +149,30 @@ def display_anomalies_summary(anomalies: dict[str, list], demand_stats: dict) ->
     """Prints a clean, formatted summary of detected anomalies in console.
 
     Args:
-        anomalies (dict[str, list]): Mapping of indicator/region names of detected issues.
+        anomalies (dict[str, list]): Mapping of series names to anomaly details.
         demand_stats (dict): Statistics for selected demand indicators.
     """
-    if anomalies and demand_stats:
-        print("\n⚠️ --- ANOMALY DETECTION SUMMARY ---")
-        has_printed = False
+    # Filtramos únicamente las series que tienen al menos una anomalía registrada
+    detected = {
+        label: len(issues)
+        for label, issues in anomalies.items()
+        if label in demand_stats and len(issues) > 0
+    }
 
-        for series_label in demand_stats.keys():
-            issues = anomalies.get(series_label, [])
-            if issues:
-                has_printed = True
-                print(f"⚠️ {series_label}: Found {len(issues)} statistical anomalies.")
-
-        if not has_printed:
-            print("✅ No anomalies detected in selected series.")
-    else:
+    if not detected:
         print("✅ No anomalies detected in selected series.")
+        return
+
+    print("\n⚠️ --- ANOMALY DETECTION SUMMARY ---")
+    for series_label, count in detected.items():
+        print(f"⚠️ {series_label}: Found {count} statistical anomalies.")
 
 
 def get_user_datetime_filter() -> tuple[datetime, datetime]:
     """Prompts the user to enter a specific start and end datetime range.
 
     Returns:
-        tuple[datetime, datetime]: Start and end boundaries as timezone-aware datetime objects.
+        tuple[datetime, datetime]: Start and end boundaries with timezone set to Europe/Madrid.
 
     Raises:
         ValueError: If the user inputs invalid date or time formats, or if the start date is not earlier than the end date.
@@ -178,20 +180,18 @@ def get_user_datetime_filter() -> tuple[datetime, datetime]:
     madrid_tz = ZoneInfo("Europe/Madrid")
 
     print("\n📅 DATA PERIOD FILTER")
-    print("Please specify the temporal range for analysis.")
-    print("\nDate format: YYYY-MM-DD (e.g., 2026-07-03)")
-    print("Time format: HH:MM      (e.g., 22:00)")
+    print("Please specify the temporal range for analysis. (Date: YYYY-MM-DD, Time: HH:MM)")
 
     while True:
         try:
             print("\n--- Enter Start Period ---")
-            start_date = input("Start Date: ").strip()
-            start_time = input("Start Time: ").strip()
+            start_date = input("Start Date  (e.g. 2026-07-01): ").strip()
+            start_time = input("Start Time  (e.g. 00:00): ").strip()
             start_dt = datetime.strptime(f"{start_date} {start_time}", "%Y-%m-%d %H:%M").replace(tzinfo=madrid_tz)
 
             print("\n--- Enter End Period ---")
-            end_date = input("End Date: ").strip()
-            end_time = input("End Time: ").strip()
+            end_date = input("End Date (e.g. 2026-07-03): ").strip()
+            end_time = input("End Time (e.g. 23:59): ").strip()
             end_dt = datetime.strptime(f"{end_date} {end_time}", "%Y-%m-%d %H:%M").replace(tzinfo=madrid_tz)
 
             if start_dt >= end_dt:
@@ -218,6 +218,6 @@ def display_market_volume_summary(volume_stats: dict) -> None:
     weighted_price = volume_stats.get("weighted_avg_price", 0.0)
 
     print("\n💶 --- MARKET ECONOMIC VOLUME ANALYSIS ---")
-    print("✅ Market demand and SPOT prices successfully aligned (1-hour resolution).")
+    print("✅ Market demand and SPOT prices aligned successfully.")
     print(f"📊 Total Market Volume: {total_million_eur:.2f} M€")
     print(f"📈 Volume-Weighted Average Price (VWAP): {format_price(weighted_price)}")

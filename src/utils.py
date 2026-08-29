@@ -1,4 +1,4 @@
-"""Centralized indicator translation and formatting utilities."""
+"""Centralized indicator translation, formatting, and helper utilities."""
 
 from config.settings import DEMAND_INDICATOR_IDS,GEOGRAPHY_TRANSLATIONS, INDICATOR_TRANSLATIONS, PRICE_INDICATOR_IDS
 
@@ -27,18 +27,19 @@ def translate_geography(geo_id: int) -> str:
     return GEOGRAPHY_TRANSLATIONS.get(geo_id, f"Geo {geo_id}")
 
 
-def translate_full_indicator(indicator_id: int, geo_id: int | None = None) -> str:
+def translate_full_indicator(indicator_id: int, geo_id: int | None = None, has_multiple_geos: bool = True) -> str:
     """Translate ESIOS indicator and geographic IDs into a full formatted English name.
 
     Args:
         indicator_id (int): ESIOS numerical indicator ID.
         geo_id (int | None): ESIOS numerical geographic region ID.
+        has_multiple_geos (bool): If False, ignores geography and returns only indicator name.
 
     Returns:
         str: Formatted English display string (e.g., "Spot Market Price (Spain)").
     """
     name = translate_indicator(indicator_id)
-    if geo_id is not None:
+    if has_multiple_geos and geo_id is not None:
         geo_name = translate_geography(geo_id)
         return f"{name} ({geo_name})"
     return name
@@ -67,7 +68,7 @@ def format_mw(value: float) -> str:
     Returns:
         str: Formatted string (e.g., "30,794.00 MW").
     """
-    return f"{value:,.2f} MW"
+    return f"{value:,.2f} MW" if value is not None else "N/A"
 
 
 def format_price(value: float) -> str:
@@ -79,4 +80,16 @@ def format_price(value: float) -> str:
     Returns:
         str: Formatted string (e.g., "175.92 €/MWh").
     """
-    return f"{value:,.2f} €/MWh"
+    return f"{value:,.2f} €/MWh" if value is not None else "N/A"
+
+
+def format_datetime(dt) -> str:
+    """Safely formats datetime objects or pandas Timestamps to a standard string format.
+
+    Args:
+        dt: Datetime object, Timestamp, or string.
+
+    Returns:
+        str: Formatted string ("YYYY-MM-DD HH:MM").
+    """
+    return dt.strftime("%Y-%m-%d %H:%M") if hasattr(dt, "strftime") else str(dt)

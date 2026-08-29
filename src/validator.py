@@ -7,7 +7,8 @@ from config.settings import EXPECTED_COLUMNS
 
 def validate_dataset(df: pd.DataFrame) -> bool:
     """Validates dataset structure, data types, missing values, and business key uniqueness.
-    Ensures data integrity for multi-region indicators by checking uniqueness across the composite key (indicator_id/id, datetime, geo_id).
+    Ensures data integrity for multi-region indicators by checking uniqueness
+    across the composite key (indicator_id, datetime, geo_id).
 
     Args:
         df (pd.DataFrame): The DataFrame to validate.
@@ -24,15 +25,13 @@ def validate_dataset(df: pd.DataFrame) -> bool:
     if df.empty:
         raise ValueError("❌ Validation failed: Provided DataFrame is empty.")
 
-    # Step 2: Validate missing columns (allowing 'indicator_id' or 'id')
-    required_cols = list(EXPECTED_COLUMNS.keys())
-    missing_cols = []
+    # Standardize column name 'id' to 'indicator_id' if present
+    if "id" in df.columns and "indicator_id" not in df.columns:
+        df = df.rename(columns={"id": "indicator_id"})
 
-    for col in required_cols:
-        if col == "indicator_id" and "indicator_id" not in df.columns and "id" in df.columns:
-            continue
-        if col not in df.columns:
-            missing_cols.append(col)
+    # Step 2: Validate missing columns
+    required_cols = list(EXPECTED_COLUMNS.keys())
+    missing_cols = [col for col in required_cols if col not in df.columns]
 
     if missing_cols:
         raise ValueError(f"❌ Validation failed: Missing required columns: {missing_cols}")
@@ -41,46 +40,46 @@ def validate_dataset(df: pd.DataFrame) -> bool:
 
     # Step 3: Validate data types
     for col, expected_type in EXPECTED_COLUMNS.items():
-        target_col = "id" if (col == "indicator_id" and "id" in df.columns and "indicator_id" not in df.columns) else col
-        # Flexible handling for text / string types
         if expected_type in ["object", "str"]:
-            if not (pd.api.types.is_object_dtype(df[target_col]) or pd.api.types.is_string_dtype(df[target_col])):
-                raise ValueError(f"❌ Validation failed: Column '{target_col}' type is {df[target_col].dtype}, expected text")
-            continue
+            if not (
+                pd.api.types.is_object_dtype(df[col])
+                or pd.api.types.is_string_dtype(df[col])
+            ):
+                raise ValueError(f"❌ Validation failed: Column '{col}' type is {df[col].dtype}, expected text.")
 
-        # Flexible check for integer types
-        if expected_type == "int64":
-            if not pd.api.types.is_integer_dtype(df[target_col]):
-                raise ValueError(f"❌ Validation failed: Column '{target_col}' type is {df[target_col].dtype}, expected integer")
-            continue
+        elif expected_type in ["int64", "int32", "int"]:
+            if not pd.api.types.is_integer_dtype(df[col]):
+                raise ValueError(f"❌ Validation failed: Column '{col}' type is {df[col].dtype}, expected integer.")
 
-        # Flexible check for float numeric types
-        if expected_type == "float64":
-            if not pd.api.types.is_float_dtype(df[target_col]):
-                raise ValueError(f"❌ Validation failed: Column '{target_col}' type is {df[target_col].dtype}, expected float")
-            continue
+        elif expected_type in ["float64", "float32", "float"]:
+            if not pd.api.types.is_float_dtype(df[col]):
+                raise ValueError(f"❌ Validation failed: Column '{col}' type is {df[col].dtype}, expected float.")
 
-        # Flexible check for timezone-aware or naive datetime columns
-        if target_col == "datetime":
-            if not (isinstance(df[target_col].dtype, pd.DatetimeTZDtype) or pd.api.types.is_datetime64_any_dtype(df[target_col])):
-                raise ValueError(f"❌ Validation failed: Column '{target_col}' type is {df[target_col].dtype}, expected datetime")
-            continue
+        elif col == "datetime":
+            if not (
+                isinstance(df[col].dtype, pd.DatetimeTZDtype)
+                or pd.api.types.is_datetime64_any_dtype(df[col])
+            ):
+                raise ValueError(f"❌ Validation failed: Column '{col}' type is {df[col].dtype}, expected datetime.")
 
     print("✅ All data types are correct.")
 
     # Step 4: Check for missing values (NaNs)
     missing_values = df.isnull().sum().sum()
     if missing_values > 0:
-        raise ValueError(f"❌ Validation failed: Found {missing_values} missing values in dataset.")
+        raise ValueError(f"❌ Validation failed: Found {missing_values} missing (NaN) values in dataset.")
+
     print("✅ No missing values.")
 
-    # # Step 5: Check for duplicate entries based on composite key
+    # Step 5: Check for duplicate entries based on composite business key
     composite_key = ["indicator_id", "datetime", "geo_id"]
-    duplicate_count = df.duplicated(subset=composite_key).sum()
-    if duplicate_count > 0:
-        raise ValueError(f"❌ Validation failed: Found {duplicate_count} duplicate records for key combination {composite_key}.")
+    available_keys = [k for k in composite_key if k in df.columns]
 
-    print("✅ No duplicate records for composite key (indicator_id, datetime, geo_id).")
+    if len(available_keys) == len(composite_key):
+        duplicate_count = df.duplicated(subset=available_keys).sum()
+        if duplicate_count > 0:
+            raise ValueError(f"❌ Validation failed: Found {duplicate_count} duplicate records for key combination {available_keys}.")
+        print(f"✅ No duplicate records for composite key {available_keys}.")
 
     print("🎉 [SUCCESS] Dataset passed all quality checks!")
     return True

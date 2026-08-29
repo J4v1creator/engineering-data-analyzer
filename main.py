@@ -73,7 +73,6 @@ def main() -> None:
 
         # Process: Establish target baselines and pairwise comparison groups
         comparison_targets = None
-
         if len(selected_demands) >= 2:
             comparison_targets = ask_comparison_targets(selected_demands)
 
@@ -115,6 +114,9 @@ def main() -> None:
         print(f"  ↳ 📊 Excel workbook saved to: {excel_path}")
         print("==================================================")
 
+    except KeyboardInterrupt:
+        print("\n\n🛑 Pipeline execution interrupted by user. Exiting.")
+        sys.exit(0)
     except RuntimeError as e:
         print(f"\n❌ System / API / DB Error:\n{e}")
         sys.exit(1)

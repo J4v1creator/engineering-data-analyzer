@@ -86,17 +86,17 @@ def save_dataframe(df: pd.DataFrame, db_path: str | Path = DEFAULT_DB_PATH) -> i
     if df.empty:
         return 0
 
-    init_db(db_path)
-
     df_to_save = df.copy()
-
-    # Convert datetime column to standardized UTC ISO string format for SQLite comparisons
-    if pd.api.types.is_datetime64_any_dtype(df_to_save["datetime"]):
-        df_to_save["datetime"] = df_to_save["datetime"].dt.tz_convert("UTC").dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # Flexible mapping fallback if column is named 'id' instead of 'indicator_id'
     if "indicator_id" not in df_to_save.columns and "id" in df_to_save.columns:
         df_to_save["indicator_id"] = df_to_save["id"]
+
+        # Convert datetime column to standardized UTC ISO string format for SQLite comparisons
+    if pd.api.types.is_datetime64_any_dtype(df_to_save["datetime"]):
+        df_to_save["datetime"] = (
+            df_to_save["datetime"].dt.tz_convert("UTC").dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        )
 
     records = df_to_save[["indicator_id", "name", "geo_id", "geo_name", "value", "datetime"]].values.tolist()
 
@@ -142,58 +142,47 @@ def load_data_by_ids(
     if not indicator_ids:
         return pd.DataFrame()
 
-    init_db(db_path)
-
     # Normalize start and end datetimes to standard UTC ISO format for SQL query
-    if isinstance(start_iso, str):
-        start_dt_obj = pd.to_datetime(start_iso, utc=True)
-    else:
-        start_dt_obj = pd.to_datetime(start_iso).tz_convert("UTC") if start_iso.tzinfo else pd.to_datetime(start_iso).tz_localize("UTC")
-
-    if isinstance(end_iso, str):
-        end_dt_obj = pd.to_datetime(end_iso, utc=True)
-    else:
-        end_dt_obj = pd.to_datetime(end_iso).tz_convert("UTC") if end_iso.tzinfo else pd.to_datetime(end_iso).tz_localize("UTC")
+    start_dt_obj = pd.to_datetime(start_iso, utc=True)
+    end_dt_obj = pd.to_datetime(end_iso, utc=True)
 
     start_str = start_dt_obj.strftime("%Y-%m-%dT%H:%M:%SZ")
     end_str = end_dt_obj.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     id_placeholders = ", ".join(["?"] * len(indicator_ids))
-    query = f"""
-        SELECT indicator_id AS id, indicator_id, name, geo_id, geo_name, value, datetime
-        FROM esios_records
-        WHERE indicator_id IN ({id_placeholders})
-            AND datetime >= ?
-            AND datetime <= ?
-    """
-    params = list(indicator_ids) + [start_str, end_str]
+
+    # Build dynamic WHERE clause
+    where_conditions = [
+        f"indicator_id IN ({id_placeholders})",
+        "datetime >= ?",
+        "datetime <= ?"
+    ]
+    params: list = list(indicator_ids) + [start_str, end_str]
 
     if geo_ids:
         geo_placeholders = ", ".join(["?"] * len(geo_ids))
-        query += f" AND geo_id IN ({geo_placeholders})"
+        where_conditions.append(f"geo_id IN ({geo_placeholders})")
         params.extend(geo_ids)
 
-    query += " ORDER BY datetime ASC, geo_id ASC"
+    where_clause = " AND ".join(where_conditions)
+
+    select_query = f"""
+        SELECT indicator_id, name, geo_id, geo_name, value, datetime
+        FROM esios_records
+        WHERE {where_clause}
+        ORDER BY datetime ASC, geo_id ASC
+    """
+
+    update_query = f"""
+        UPDATE esios_records
+        SET last_accessed_at = CURRENT_TIMESTAMP
+        WHERE {where_clause}
+    """
 
     with get_connection(db_path) as conn:
         cursor = conn.cursor()
-
-        # Update last_accessed_at for records matching the query to reset expiration timer
-        update_query = f"""
-            UPDATE esios_records
-            SET last_accessed_at = CURRENT_TIMESTAMP
-            WHERE indicator_id IN ({id_placeholders})
-                AND datetime >= ?
-                AND datetime <= ?
-        """
-        update_params = list(params)
-        if geo_ids:
-            update_query += f" AND geo_id IN ({', '.join(['?'] * len(geo_ids))})"
-
-        cursor.execute(update_query, update_params)
-
-        # Retrieve matching records
-        df = pd.read_sql_query(query, conn, params=params)
+        cursor.execute(update_query, params)
+        df = pd.read_sql_query(select_query, conn, params=params)
 
     if not df.empty:
         # Convert datetime column back to Europe/Madrid localized objects

@@ -57,21 +57,21 @@ def _write_section(
     Returns:
         int: Next available 1-based row index after inserting spacing gap.
     """
-    # 1. Write Data Table first (creates the worksheet if it doesn't exist)
+    # Write Data Table first (creates the worksheet if it doesn't exist)
     data_start_row = start_row + 1
     df_data.to_excel(writer, sheet_name=sheet_name, startrow=data_start_row - 1, index=False)
 
     ws = writer.sheets[sheet_name]
 
-    # 2. Determine table width and merge title cells across all columns
+    # Determine table width and merge title cells across all columns
     num_cols = len(df_data.columns)
     if num_cols > 1:
         ws.merge_cells(start_row=start_row, start_column=1, end_row=start_row, end_column=num_cols)
 
-    # 3. Write Section Title in top-left cell of the merged region
+    # Write Section Title in top-left cell of the merged region
     ws.cell(row=start_row, column=1, value=title)
 
-    # 4. Calculate next section starting row including gap
+    # Calculate next section starting row including gap
     next_row = start_row + 1 + len(df_data) + EXCEL_SECTION_GAP
     return next_row
 
@@ -94,16 +94,15 @@ def _apply_workbook_styles(file_path: Path) -> None:
 
     for sheet in wb.worksheets:
         sheet.views.sheetView[0].showGridLines = True
-
         column_header_rows = set()
 
-        # Step 1: Identify section title rows and column header rows
+        # Identify section title rows and column header rows
         for row_idx, row in enumerate(sheet.iter_rows(), start=1):
             first_cell_val = row[0].value
             if isinstance(first_cell_val, str) and any(kw in first_cell_val for kw in EXCEL_PRIMARY_SECTION_KEYWORDS):
                 column_header_rows.add(row_idx + 1)
 
-        # Step 2: Apply styles strictly within exact table bounds
+        # Apply styles strictly within exact table bounds
         for row in sheet.iter_rows():
             first_cell_val = row[0].value
             row_idx = row[0].row
@@ -168,6 +167,204 @@ def _apply_workbook_styles(file_path: Path) -> None:
         print(f"⚠️ Could not save styled workbook: {e}")
 
 
+def _build_executive_summary_tab(
+    writer: pd.ExcelWriter,
+    min_dt: datetime,
+    max_dt: datetime,
+    demand_stats: dict,
+    price_stats: dict,
+    market_volume_stats: dict,
+) -> None:
+    """Builds the Executive Summary worksheet of the Excel report.
+
+    Args:
+        writer (pd.ExcelWriter): Excel writer used to create and populate the workbook.
+        min_dt (datetime): Start datetime of the analysis period.
+        max_dt (datetime): End datetime of the analysis period.
+        demand_stats (dict): Statistical indicators calculated for energy demand.
+        price_stats (dict): Statistical indicators calculated for energy prices.
+        market_volume_stats (dict): Statistical indicators calculated for market volume and economic activity.
+    """
+    sheet_name = "Executive Summary"
+    current_row = 1
+
+    # Metadata Section
+    meta_data = {
+        "Metric": ["Analysis Period Start", "Analysis Period End", "Report Generation Time"],
+        "Value": [
+            min_dt.strftime("%Y-%m-%d %H:%M:%S"),
+            max_dt.strftime("%Y-%m-%d %H:%M:%S"),
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        ],
+    }
+    current_row = _write_section(writer, sheet_name, "ANALYSIS METADATA & PERIOD", pd.DataFrame(meta_data), current_row)
+
+    # Market Volume Section
+    if market_volume_stats:
+        volume_data = {
+            "Market Indicator": [
+                "Total Traded Volume (M€)",
+                "Total Energy Processed (GWh)",
+                "Volume-Weighted Avg Price (VWAP)",
+                "Peak Expenditure Timestamp",
+                "Peak Hourly Cost (k€)",
+                "Peak Hour Demand (MW)",
+                "Peak Hour SPOT Price (€/MWh)",
+            ],
+            "Value": [
+                market_volume_stats.get("total_volume_eur", 0.0) / 1_000_000,
+                market_volume_stats.get("total_energy_mwh", 0.0) / 1_000,
+                market_volume_stats.get("weighted_avg_price", 0.0),
+                str(market_volume_stats.get("peak_spend_hour", "N/A")),
+                market_volume_stats.get("peak_spend_eur", 0.0) / 1_000,
+                market_volume_stats.get("peak_spend_demand_mw", 0.0),
+                market_volume_stats.get("peak_spend_price_eur", 0.0),
+            ],
+        }
+        current_row = _write_section(writer, sheet_name, "MARKET ECONOMIC VOLUME SUMMARY", pd.DataFrame(volume_data), current_row)
+
+    # Performance Overview Section
+    summary_rows = [
+        {"Indicator": lbl, "Type": "Demand", "Mean": s.get("mean"), "Max": s.get("max"), "Min": s.get("min")}
+        for lbl, s in demand_stats.items()
+    ] + [
+        {"Indicator": lbl, "Type": "Price", "Mean": s.get("mean"), "Max": s.get("max"), "Min": s.get("min")}
+        for lbl, s in price_stats.items()
+    ]
+
+    if summary_rows:
+        _write_section(writer, sheet_name, "KEY INDICATORS PERFORMANCE OVERVIEW", pd.DataFrame(summary_rows), current_row)
+
+
+def _build_statistical_analysis_tab(writer: pd.ExcelWriter, demand_stats: dict, price_stats: dict) -> None:
+    """Builds the Statistical Analysis worksheet of the Excel report.
+
+    Args:
+        writer (pd.ExcelWriter): Excel writer used to create and populate the workbook.
+        demand_stats (dict): Statistical indicators calculated for energy demand.
+        price_stats (dict): Statistical indicators calculated for energy prices.
+    """
+    sheet_name = "Statistical Analysis"
+    current_row = 1
+
+    # Detailed Demand
+    demand_rows = [
+        {
+            "Indicator Name": series_label,
+            "Mean (MW)": stats.get("mean"),
+            "Median (MW)": stats.get("median"),
+            "Std Dev (MW)": stats.get("std_dev"),
+            "Max Value (MW)": stats.get("max"),
+            "Max Timestamp": str(stats.get("peak_time", "N/A")),
+            "Min Value (MW)": stats.get("min"),
+        }
+        for series_label, stats in demand_stats.items()
+    ]
+    df_demand = pd.DataFrame(demand_rows)
+    if not df_demand.empty:
+        current_row = _write_section(writer, sheet_name, "DETAILED DEMAND STATISTICS (MW)", df_demand, current_row)
+
+    # Detailed Prices
+    price_rows = [
+        {
+            "Indicator Name": series_label,
+            "Max (€/MWh)": stats.get("max"),
+            "Max Timestamp": str(stats.get("max_time", "N/A")),
+            "Min (€/MWh)": stats.get("min"),
+            "Min Timestamp": str(stats.get("min_time", "N/A")),
+            "Spread (€/MWh)": stats.get("spread"),
+            "Low Price Hours (<=5€)": stats.get("zero_low_price_hours"),
+        }
+        for series_label, stats in price_stats.items()
+    ]
+    df_price = pd.DataFrame(price_rows)
+    if not df_price.empty:
+        _write_section(writer, sheet_name, "DETAILED PRICE STATISTICS (€/MWh)", df_price, current_row)
+
+
+def _build_models_anomalies_tab(writer: pd.ExcelWriter, comp_stats: dict, anomalies: dict) -> None:
+    """Builds the Models & Anomalies worksheet of the Excel report.
+
+    Args:
+        writer (pd.ExcelWriter): Excel writer used to create and populate the workbook.
+        comp_stats (dict): Statistics from the pairwise comparison of demand models.
+        anomalies (dict): Detected statistical anomalies and outliers grouped by indicator series.
+    """
+    sheet_name = "Models & Anomalies"
+    current_row = 1
+
+    # Model Comparison
+    if comp_stats:
+        model_a_id = comp_stats.get("model_a")
+        model_b_id = comp_stats.get("model_b")
+
+        model_a_name = translate_indicator(indicator_id=model_a_id) if isinstance(model_a_id, int) else str(model_a_id)
+        model_b_name = translate_indicator(indicator_id=model_b_id) if isinstance(model_b_id, int) else str(model_b_id)
+
+        df_comp = pd.DataFrame([{
+            "Baseline Series": model_a_name,
+            "Target Series": model_b_name,
+            "MAPE (%)": comp_stats.get("mape"),
+            "Pearson Correlation (r)": comp_stats.get("correlation"),
+            "Mean Difference (MW)": comp_stats.get("mean_difference"),
+            "Max Difference (MW)": comp_stats.get("max_difference_value"),
+            "Max Difference Timestamp": str(comp_stats.get("max_difference_time", "N/A")),
+        }])
+        current_row = _write_section(writer, sheet_name, "PAIRWISE DEMAND MODEL COMPARISON", df_comp, current_row)
+
+    # Anomalies
+    anomaly_rows = []
+    if isinstance(anomalies, dict):
+        for series_label, rec_list in anomalies.items():
+            for rec in rec_list:
+                anomaly_rows.append({
+                    "Timestamp": str(rec.get("datetime")),
+                    "Indicator": series_label,
+                    "Observed Value (MW)": rec.get("value"),
+                    "Deviation": rec.get("deviation"),
+                    "Anomaly Type": rec.get("type"),
+                })
+
+    df_anomalies = pd.DataFrame(anomaly_rows)
+    if not df_anomalies.empty:
+        _write_section(writer, sheet_name, "DETECTED STATISTICAL ANOMALIES & OUTLIERS", df_anomalies, current_row)
+
+
+def _build_clean_data_tab(writer: pd.ExcelWriter, df: pd.DataFrame) -> None:
+    """Builds the Clean Data worksheet containing processed market data.
+
+    Args:
+        writer (pd.ExcelWriter): Excel writer used to create and populate the workbook.
+        df (pd.DataFrame): Cleaned and validated energy market data to be exported.
+    """
+    sheet_name = "Clean Data"
+    df_clean = df.copy()
+
+    priority_order = DEMAND_INDICATOR_IDS + PRICE_INDICATOR_IDS
+
+    if "indicator_id" in df_clean.columns:
+        df_clean["indicator_id"] = pd.Categorical(df_clean["indicator_id"], categories=priority_order, ordered=True)
+        df_clean["name"] = df_clean["indicator_id"].map(lambda x: translate_indicator(indicator_id=x))
+
+    if "geo_id" in df_clean.columns:
+        df_clean["geo_name"] = df_clean["geo_id"].map(lambda x: translate_geography(geo_id=x))
+
+    if "datetime" in df_clean.columns:
+        df_clean["datetime"] = pd.to_datetime(df_clean["datetime"])
+
+    sort_cols = [col for col in ["indicator_id", "datetime"] if col in df_clean.columns]
+    if sort_cols:
+        df_clean = df_clean.sort_values(by=sort_cols, ascending=[True, True])
+
+    if "datetime" in df_clean.columns:
+        df_clean["datetime"] = df_clean["datetime"].dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    cols_to_keep = ["indicator_id", "name", "geo_id", "geo_name", "datetime", "value"]
+    df_export = df_clean[[col for col in cols_to_keep if col in df_clean.columns]]
+
+    _write_section(writer, sheet_name, "CLEAN & PROCESSED MARKET DATA", df_export, start_row=1)
+
+
 def export_to_excel(
     df: pd.DataFrame,
     demand_stats: dict,
@@ -175,295 +372,40 @@ def export_to_excel(
     comp_stats: dict,
     anomalies: dict,
     market_volume_stats: dict,
+    output_dir: str | Path = DEFAULT_OUTPUT_DIR,
 ) -> str:
-    """Generates a styled, multi-tab Excel workbook containing energy market analytics,
-    raw data, model evaluation, and anomaly breakdowns.
+    """Generates a styled, multi-tab Excel workbook containing energy market analytics.
 
     Args:
         df (pd.DataFrame): Cleaned and validated energy market data.
-        demand_stats (dict): Statistics for demand analysis.
-        price_stats (dict): Statistics for price analysis.
-        comp_stats (dict): Statistics for comparative analysis.
-        anomalies (dict): Information about detected anomalies.
-        market_volume_stats (dict): Statistics for market volume analysis.
+        demand_stats (dict): Statistics for energy demand analysis.
+        price_stats (dict): Statistics for energy price analysis.
+        comp_stats (dict): Statistics for comparative demand model analysis.
+        anomalies (dict): Information about detected statistical anomalies and outliers.
+        market_volume_stats (dict): Statistics for market volume and economic analysis.
+        output_dir (str | Path): Directory where the generated Excel workbook will be saved.
 
     Returns:
-        str: Absolute or relative file path to the generated .xlsx file.
+        str: Full path to the generated Excel workbook.
     """
     print("\n📊 Generating Excel workbook...")
 
     # Ensure target output directory exists
-    out_dir_path = Path(DEFAULT_OUTPUT_DIR)
+    out_dir_path = Path(output_dir)
     out_dir_path.mkdir(parents=True, exist_ok=True)
 
     # Determine dynamic filename based on temporal dataset range
-    min_dt = df["datetime"].min()
-    max_dt = df["datetime"].max()
-
-    if min_dt.date() == max_dt.date():
-        start_str = min_dt.strftime("%Y%m%d_%H%M")
-        end_str = max_dt.strftime("%Y%m%d_%H%M")
-    else:
-        start_str = min_dt.strftime("%Y%m%d")
-        end_str = max_dt.strftime("%Y%m%d")
-
-    filename = f"energy_analysis_{start_str}_to_{end_str}.xlsx"
+    min_dt, max_dt = df["datetime"].min(), df["datetime"].max()
+    fmt = "%Y%m%d_%H%M" if min_dt.date() == max_dt.date() else "%Y%m%d"
+    filename = f"energy_analysis_{min_dt.strftime(fmt)}_to_{max_dt.strftime(fmt)}.xlsx"
     file_path = out_dir_path / filename
 
     # Create Excel Writer
     with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
-        # ==========================================
-        # TAB 1: EXECUTIVE SUMMARY
-        # ==========================================
-        sheet_name = "Executive Summary"
-        current_row = 1
-
-        # 1.1 Analysis Metadata & Period
-        meta_data = {
-            "Metric": [
-                "Analysis Period Start",
-                "Analysis Period End",
-                "Report Generation Time",
-            ],
-            "Value": [
-                min_dt.strftime("%Y-%m-%d %H:%M:%S"),
-                max_dt.strftime("%Y-%m-%d %H:%M:%S"),
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            ],
-        }
-        df_meta = pd.DataFrame(meta_data)
-        current_row = _write_section(writer=writer, sheet_name=sheet_name, title="ANALYSIS METADATA & PERIOD", df_data=df_meta,start_row=current_row)
-
-        # 1.2 Market Economic Volume Summary
-        if market_volume_stats:
-            volume_data = {
-                "Market Indicator": [
-                    "Total Traded Volume (M€)",
-                    "Total Energy Processed (GWh)",
-                    "Volume-Weighted Avg Price (VWAP)",
-                    "Peak Expenditure Timestamp",
-                    "Peak Hourly Cost (k€)",
-                    "Peak Hour Demand (MW)",
-                    "Peak Hour SPOT Price (€/MWh)",
-                ],
-                "Value": [
-                    market_volume_stats.get("total_volume_eur", 0.0) / 1_000_000,
-                    market_volume_stats.get("total_energy_mwh", 0.0) / 1_000,
-                    market_volume_stats.get("weighted_avg_price", 0.0),
-                    str(market_volume_stats.get("peak_spend_hour", "N/A")),
-                    market_volume_stats.get("peak_spend_eur", 0.0) / 1_000,
-                    market_volume_stats.get("peak_spend_demand_mw", 0.0),
-                    market_volume_stats.get("peak_spend_price_eur", 0.0),
-                ],
-            }
-            df_volume = pd.DataFrame(volume_data)
-            current_row = _write_section(writer=writer, sheet_name=sheet_name, title="MARKET ECONOMIC VOLUME SUMMARY", df_data=df_volume, start_row=current_row)
-
-        # 1.3 Key Indicators Performance Overview
-        summary_rows = []
-
-        # Demand Series
-        for series_label, stats in demand_stats.items():
-            summary_rows.append(
-                {
-                    "Indicator": series_label,
-                    "Type": "Demand",
-                    "Mean": stats.get("mean"),
-                    "Max": stats.get("max"),
-                    "Min": stats.get("min"),
-                }
-            )
-
-        # Price Series
-        for series_label, stats in price_stats.items():
-            summary_rows.append(
-                {
-                    "Indicator": series_label,
-                    "Type": "Price",
-                    "Mean": stats.get("mean"),
-                    "Max": stats.get("max"),
-                    "Min": stats.get("min"),
-                }
-            )
-
-        if summary_rows:
-            df_summary = pd.DataFrame(summary_rows)
-            current_row = _write_section(writer=writer, sheet_name=sheet_name, title="KEY INDICATORS PERFORMANCE OVERVIEW", df_data=df_summary, start_row=current_row)
-
-        # ==========================================
-        # TAB 2: STATISTICAL ANALYSIS
-        # ==========================================
-        sheet_name = "Statistical Analysis"
-        current_row = 1
-
-        # 2.1 Detailed Demand Statistics
-        demand_cols = [
-            "Indicator Name",
-            "Mean (MW)",
-            "Median (MW)",
-            "Std Dev (MW)",
-            "Max Value (MW)",
-            "Max Timestamp",
-            "Min Value (MW)",
-        ]
-        demand_rows = [
-            {
-                "Indicator Name": series_label,
-                "Mean (MW)": stats.get("mean"),
-                "Median (MW)": stats.get("median"),
-                "Std Dev (MW)": stats.get("std_dev"),
-                "Max Value (MW)": stats.get("max"),
-                "Max Timestamp": str(stats.get("peak_time", "N/A")),
-                "Min Value (MW)": stats.get("min"),
-            }
-            for series_label, stats in demand_stats.items()
-        ]
-        df_demand = pd.DataFrame(demand_rows, columns=demand_cols)
-
-        if not df_demand.empty:
-            current_row = _write_section(writer=writer, sheet_name=sheet_name, title="DETAILED DEMAND STATISTICS (MW)", df_data=df_demand, start_row=current_row)
-
-        # 2.2 Detailed Price Statistics
-        price_cols = [
-            "Indicator Name",
-            "Max (€/MWh)",
-            "Max Timestamp",
-            "Min (€/MWh)",
-            "Min Timestamp",
-            "Spread (€/MWh)",
-            "Low Price Hours (<=5€)",
-        ]
-        price_rows = [
-            {
-                "Indicator Name": series_label,
-                "Max (€/MWh)": stats.get("max"),
-                "Max Timestamp": str(stats.get("max_time", "N/A")),
-                "Min (€/MWh)": stats.get("min"),
-                "Min Timestamp": str(stats.get("min_time", "N/A")),
-                "Spread (€/MWh)": stats.get("spread"),
-                "Low Price Hours (<=5€)": stats.get("zero_low_price_hours"),
-            }
-            for series_label, stats in price_stats.items()
-        ]
-        df_price = pd.DataFrame(price_rows, columns=price_cols)
-
-        if not df_price.empty:
-            current_row = _write_section(writer=writer, sheet_name=sheet_name, title="DETAILED PRICE STATISTICS (€/MWh)", df_data=df_price, start_row=current_row)
-
-        # ==========================================
-        # TAB 3: MODELS & ANOMALIES
-        # ==========================================
-        sheet_name = "Models & Anomalies"
-        current_row = 1
-
-        # 3.1 Pairwise Model Comparison
-        comp_cols = [
-            "Baseline Series",
-            "Target Series",
-            "MAPE (%)",
-            "Pearson Correlation (r)",
-            "Mean Difference (MW)",
-            "Max Difference (MW)",
-            "Max Difference Timestamp",
-        ]
-        comp_rows = []
-        if comp_stats:
-            model_a_id = comp_stats.get("model_a")
-            model_b_id = comp_stats.get("model_b")
-
-            model_a_name = translate_indicator(indicator_id=model_a_id) if isinstance(model_a_id, int) else str(model_a_id)
-            model_b_name = translate_indicator(indicator_id=model_b_id) if isinstance(model_b_id, int) else str(model_b_id)
-
-            comp_rows.append(
-                {
-                    "Baseline Series": model_a_name,
-                    "Target Series": model_b_name,
-                    "MAPE (%)": comp_stats.get("mape"),
-                    "Pearson Correlation (r)": comp_stats.get("correlation"),
-                    "Mean Difference (MW)": comp_stats.get("mean_difference"),
-                    "Max Difference (MW)": comp_stats.get("max_difference_value"),
-                    "Max Difference Timestamp": str(comp_stats.get("max_difference_time", "N/A")),
-                }
-            )
-
-        df_comp = pd.DataFrame(comp_rows, columns=comp_cols)
-        if not df_comp.empty:
-            current_row = _write_section(writer=writer, sheet_name=sheet_name, title="PAIRWISE DEMAND MODEL COMPARISON", df_data=df_comp, start_row=current_row)
-
-        # 3.2 Detected Statistical Anomalies & Outliers
-        anomaly_cols = [
-            "Timestamp",
-            "Indicator",
-            "Observed Value (MW)",
-            "Deviation",
-            "Anomaly Type",
-        ]
-        anomaly_rows = []
-        if isinstance(anomalies, dict):
-            for series_label, rec_list in anomalies.items():
-                for rec in rec_list:
-                    anomaly_rows.append(
-                        {
-                            "Timestamp": str(rec.get("datetime")),
-                            "Indicator": series_label,
-                            "Observed Value (MW)": rec.get("value"),
-                            "Deviation": rec.get("deviation"),
-                            "Anomaly Type": rec.get("type"),
-                        }
-                    )
-
-        df_anomalies = pd.DataFrame(anomaly_rows, columns=anomaly_cols)
-        if not df_anomalies.empty:
-            current_row = _write_section(writer=writer, sheet_name=sheet_name, title="DETECTED STATISTICAL ANOMALIES & OUTLIERS", df_data=df_anomalies, start_row=current_row)
-
-        # ==========================================
-        # TAB 4: CLEAN DATA
-        # ==========================================
-        sheet_name = "Clean Data"
-        df_clean = df.copy()
-
-        # 1. Define strict indicator hierarchy ordering
-        priority_order = DEMAND_INDICATOR_IDS + PRICE_INDICATOR_IDS
-
-        # 2. Map Categorical ordering and translate indicator names via utils
-        if "indicator_id" in df_clean.columns:
-            df_clean["indicator_id"] = pd.Categorical(
-                df_clean["indicator_id"], categories=priority_order, ordered=True
-            )
-            df_clean["name"] = df_clean["indicator_id"].map(
-                lambda x: translate_indicator(indicator_id=x)
-            )
-
-        # 3. Translate geographic names to English via utils
-        if "geo_id" in df_clean.columns:
-            df_clean["geo_name"] = df_clean["geo_id"].map(
-                lambda x: translate_geography(geo_id=x)
-            )
-
-        # 4. Parse datetime column for chronological sorting
-        if "datetime" in df_clean.columns:
-            df_clean["datetime"] = pd.to_datetime(df_clean["datetime"])
-
-        # 5. Apply multi-level sorting (Primary: Indicator priority, Secondary: Chronological timestamp)
-        sort_cols = [col for col in ["indicator_id", "datetime"] if col in df_clean.columns]
-        if sort_cols:
-            df_clean = df_clean.sort_values(by=sort_cols, ascending=[True, True])
-
-        # 6. Format datetime back to string for Excel export
-        if "datetime" in df_clean.columns:
-            df_clean["datetime"] = df_clean["datetime"].dt.strftime("%Y-%m-%d %H:%M:%S")
-
-        # 7. Select required columns and write to Excel
-        cols_to_keep = ["indicator_id", "name", "geo_id", "geo_name", "datetime", "value"]
-        df_export = df_clean[[col for col in cols_to_keep if col in df_clean.columns]]
-
-        _write_section(
-            writer=writer,
-            sheet_name=sheet_name,
-            title="CLEAN & PROCESSED MARKET DATA",
-            df_data=df_export,
-            start_row=1,
-        )
+        _build_executive_summary_tab(writer, min_dt, max_dt, demand_stats, price_stats, market_volume_stats)
+        _build_statistical_analysis_tab(writer, demand_stats, price_stats)
+        _build_models_anomalies_tab(writer, comp_stats, anomalies)
+        _build_clean_data_tab(writer, df)
 
     # Post-process formatting with OpenPyXL
     _apply_workbook_styles(file_path)

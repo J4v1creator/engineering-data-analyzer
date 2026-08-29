@@ -7,8 +7,8 @@ from config.settings import (
     DEMAND_INDICATOR_IDS,
     GLOBAL_GEO_ORDER,
     PRICE_INDICATOR_IDS,
-    )
-from src.utils import translate_full_indicator, translate_indicator
+)
+from src.utils import format_datetime, translate_full_indicator, translate_indicator
 
 
 def calculate_demand_statistics(df_demands: pd.DataFrame, selected_demands: list[int] | None = None) -> dict[str, dict[str, float | str]]:
@@ -21,7 +21,7 @@ def calculate_demand_statistics(df_demands: pd.DataFrame, selected_demands: list
     Returns:
         dict[str, dict[str, float | str]]: Statistical summary per demand series.
     """
-    if df_demands.empty:
+    if df_demands.empty or not selected_demands:
         return {}
 
     print("\n🔍 Calculating power demand statistics...")
@@ -44,15 +44,7 @@ def calculate_demand_statistics(df_demands: pd.DataFrame, selected_demands: list
     for (ind_id, geo_id), group in df_filtered.groupby(["indicator_id", "geo_id"], sort=False):
         values = group["value"]
         max_row = group.loc[values.idxmax()]
-
-        peak_time = max_row["datetime"]
-        peak_str = peak_time.strftime("%Y-%m-%d %H:%M") if hasattr(peak_time, "strftime") else str(peak_time)
-
-        # Dynamic label formatting based on whether multiple geographies are present
-        if has_multiple_geos:
-            label = translate_full_indicator(indicator_id=ind_id, geo_id=geo_id)
-        else:
-            label = translate_indicator(indicator_id=ind_id)
+        label = translate_full_indicator(ind_id, geo_id, has_multiple_geos=has_multiple_geos)
 
         stats[label] = {
             "mean": float(values.mean()),
@@ -60,7 +52,7 @@ def calculate_demand_statistics(df_demands: pd.DataFrame, selected_demands: list
             "max": float(values.max()),
             "min": float(values.min()),
             "std_dev": float(values.std()) if len(values) > 1 else 0.0,
-            "peak_time": peak_str,
+            "peak_time": format_datetime(max_row["datetime"]),
             "geo_name": group["geo_name"].iloc[0] if "geo_name" in group.columns else "Unknown",
         }
 
@@ -79,7 +71,7 @@ def calculate_price_statistics(df_prices: pd.DataFrame, selected_prices: list[in
     Returns:
         dict: Specialized market statistics per price series.
     """
-    if df_prices.empty:
+    if df_prices.empty or not selected_prices:
         return {}
 
     print("\n🔍 Calculating energy price statistics...")
@@ -107,24 +99,13 @@ def calculate_price_statistics(df_prices: pd.DataFrame, selected_prices: list[in
         values = df_sub["value"]
         max_row = df_sub.loc[values.idxmax()]
         min_row = df_sub.loc[values.idxmin()]
-
-        # Format timestamps safely
-        max_time = max_row["datetime"]
-        min_time = min_row["datetime"]
-        max_str = max_time.strftime("%Y-%m-%d %H:%M") if hasattr(max_time, "strftime") else str(max_time)
-        min_str = min_time.strftime("%Y-%m-%d %H:%M") if hasattr(min_time, "strftime") else str(min_time)
-
-        # Dynamic label formatting based on whether multiple geographies are present
-        if has_multiple_geos:
-            series_name = translate_full_indicator(indicator_id=price_id, geo_id=geo_id)
-        else:
-            series_name = translate_indicator(indicator_id=price_id)
+        series_name = translate_full_indicator(price_id, geo_id, has_multiple_geos=has_multiple_geos)
 
         stats[series_name] = {
             "max": float(values.max()),
-            "max_time": max_str,
+            "max_time": format_datetime(max_row["datetime"]),
             "min": float(values.min()),
-            "min_time": min_str,
+            "min_time": format_datetime(min_row["datetime"]),
             "spread": float(values.max() - values.min()),
             "zero_low_price_hours": int((values <= 5.0).sum()),
             "mean": float(values.mean()),
@@ -135,7 +116,7 @@ def calculate_price_statistics(df_prices: pd.DataFrame, selected_prices: list[in
     return stats
 
 
-def compare_demand_models(df: pd.DataFrame, targets: tuple[int, int] | list[int] | None = None) -> dict[str, str | float | int]:
+def compare_demand_models(df_demands: pd.DataFrame, comparison_targets: tuple[int, int] | list[int] | None = None) -> dict[str, str | float | int]:
     """Performs comparative analysis dynamically between two selected demand series IDs.
 
     Args:
@@ -145,13 +126,16 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple[int, int] | list[int]
     Returns:
         dict[str, str | float | int]: Comparative metrics dictionary or empty dict if invalid.
     """
-    if not targets or len(targets) != 2:
+    if df_demands.empty or not comparison_targets:
+        return None
+
+    if not comparison_targets or len(comparison_targets) != 2:
         return {}
 
-    id_a, id_b = targets[0], targets[1]
+    id_a, id_b = comparison_targets[0], comparison_targets[1]
 
     # Validate presence of both indicator IDs in dataset
-    if id_a not in df["indicator_id"].values or id_b not in df["indicator_id"].values:
+    if id_a not in df_demands["indicator_id"].values or id_b not in df_demands["indicator_id"].values:
         print(f"⚠️ Advanced comparison skipped: One or both target IDs ({id_a}, {id_b}) are not present.")
         return {}
 
@@ -162,10 +146,10 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple[int, int] | list[int]
     print(f"\n🧠 Running advanced comparative analysis between '{model_a_en}' and '{model_b_en}'...")
 
     # Pivot table using indicator_id (guarantees numerical matching)
-    pivoted_df = df.pivot_table(
-        index="datetime", 
-        columns="indicator_id", 
-        values="value", 
+    pivoted_df = df_demands.pivot_table(
+        index="datetime",
+        columns="indicator_id",
+        values="value",
         aggfunc="first"
     )
 
@@ -189,7 +173,6 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple[int, int] | list[int]
     pivoted_df["abs_difference"] = pivoted_df["difference"].abs()
 
     max_diff_idx = pivoted_df["abs_difference"].idxmax()
-    max_diff_time = max_diff_idx.strftime("%Y-%m-%d %H:%M") if hasattr(max_diff_idx, "strftime") else str(max_diff_idx)
     max_diff_value = float(pivoted_df.loc[max_diff_idx, "difference"])
 
     mape = float((pivoted_df["abs_difference"] / series_a.replace(0, pd.NA)).mean() * 100)
@@ -200,13 +183,13 @@ def compare_demand_models(df: pd.DataFrame, targets: tuple[int, int] | list[int]
         "model_b": id_b,
         "mean_difference": float(pivoted_df["difference"].mean()),
         "max_difference_value": max_diff_value,
-        "max_difference_time": max_diff_time,
+        "max_difference_time": format_datetime(max_diff_idx),
         "mape": mape,
         "correlation": correlation,
     }
 
 
-def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY_THRESHOLD) -> dict[str, list[dict]]:
+def detect_demand_anomalies(df_demands: pd.DataFrame, threshold: float = DEFAULT_ANOMALY_THRESHOLD) -> dict[str, list[dict]]:
     """Detects abnormal spikes or drops in demand series using Z-Score methodology.
 
     Args:
@@ -216,15 +199,18 @@ def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY
     Returns:
         dict[str, list[dict]]: Dictionary mapping demand labels to lists of anomaly events.
     """
+    if df_demands.empty:
+        return {}
+
     # Early exit if DataFrame is empty or missing required columns
-    if df.empty or "indicator_id" not in df.columns or "geo_id" not in df.columns:
+    if df_demands.empty or "indicator_id" not in df_demands.columns or "geo_id" not in df_demands.columns:
         print("⚠️ [ANOMALIES] Empty dataset or missing required columns. Skipping analysis.")
         return {}
 
     print("\n🔍 Scanning for statistical anomalies in energy demand series...")
     anomalies_report = {}
 
-    df_filtered = df.copy()
+    df_filtered = df_demands.copy()
 
     # Apply Categorical ordering ONLY for demand indicators
     df_filtered["indicator_id"] = pd.Categorical(df_filtered["indicator_id"], categories=DEMAND_INDICATOR_IDS, ordered=True)
@@ -251,28 +237,19 @@ def detect_demand_anomalies(df: pd.DataFrame, threshold: float = DEFAULT_ANOMALY
         anomaly_rows = group_df[z_scores.abs() > threshold]
 
         if not anomaly_rows.empty:
-            # Dynamic label formatting based on whether multiple geographies are present
-            if has_multiple_geos:
-                series_label = translate_full_indicator(indicator_id=ind_id, geo_id=geo_id)
-            else:
-                series_label = translate_indicator(indicator_id=ind_id)
+            series_label = translate_full_indicator(ind_id, geo_id, has_multiple_geos=has_multiple_geos)
             geo_name = group_df["geo_name"].iloc[0] if "geo_name" in group_df.columns else "Unknown"
 
-            anomalies_report[series_label] = []
-
-            for _, row in anomaly_rows.iterrows():
-                dt_val = row["datetime"]
-                dt_str = dt_val.strftime("%Y-%m-%d %H:%M") if hasattr(dt_val, "strftime") else str(dt_val)
-
-                anomaly_type = "SPIKE 📈" if row["value"] > mean_val else "DROP 📉"
-
-                anomalies_report[series_label].append({
-                    "datetime": dt_str,
+            anomalies_report[series_label] = [
+                {
+                    "datetime": format_datetime(row["datetime"]),
                     "value": float(row["value"]),
-                    "type": anomaly_type,
+                    "type": "SPIKE 📈" if row["value"] > mean_val else "DROP 📉",
                     "deviation": float(row["value"] - mean_val),
                     "geo_name": str(geo_name),
-                })
+                }
+                for _, row in anomaly_rows.iterrows()
+            ]
 
     return anomalies_report
 
@@ -321,13 +298,13 @@ def calculate_market_economic_volume(df: pd.DataFrame) -> dict:
     if merged.empty:
         return {}
 
-    merged["hourly_volume_eur"] = (merged["demand_mwh"] * merged["spot_price_eur_mwh"])
+    merged["hourly_volume_eur"] = merged["demand_mwh"] * merged["spot_price_eur_mwh"]
 
     total_volume_eur = float(merged["hourly_volume_eur"].sum())
     total_energy_mwh = float(merged["demand_mwh"].sum())
 
     max_spend_row = merged.loc[merged["hourly_volume_eur"].idxmax()]
-    volume_weighted_avg_price = (total_volume_eur / total_energy_mwh if total_energy_mwh > 0 else 0.0)
+    volume_weighted_avg_price = total_volume_eur / total_energy_mwh if total_energy_mwh > 0 else 0.0
 
     return {
         "total_volume_eur": total_volume_eur,

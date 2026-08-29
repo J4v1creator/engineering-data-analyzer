@@ -1,6 +1,13 @@
 """Centralized configuration, dynamic pathlib resolution, and constants."""
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
+# Load environment variables from .env file at root level
+load_dotenv()
+
+# --- API & Authentication ---
+ESIOS_API_TOKEN = os.getenv("ESIOS_API_TOKEN", "")
 
 # --- Base Storage Directories ---
 # Resolved dynamically relative to the project root

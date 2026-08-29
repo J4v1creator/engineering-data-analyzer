@@ -13,9 +13,9 @@ from config.settings import (
     DEMAND_INDICATOR_IDS,
     GEO_COLOR_PALETTE,
     GLOBAL_GEO_ORDER,
-    PRICE_INDICATOR_IDS
+    PRICE_INDICATOR_IDS,
 )
-from src.utils import translate_full_indicator, translate_indicator
+from src.utils import translate_full_indicator
 
 
 def _plot_time_series(
@@ -50,7 +50,7 @@ def _plot_time_series(
 
     df_copy = df.copy()
 
-    # Apply indicator sorting if provided
+    # Apply indicator and geographic region sorting
     if priority_order:
         df_copy["indicator_id"] = pd.Categorical(df_copy["indicator_id"], categories=priority_order, ordered=True)
 
@@ -63,17 +63,10 @@ def _plot_time_series(
     if sort_cols:
         df_copy = df_copy.sort_values(sort_cols)
 
-    min_dt = df_copy["datetime"].min()
-    max_dt = df_copy["datetime"].max()
-
-    if min_dt.date() == max_dt.date():
-        start_str = min_dt.strftime("%Y%m%d_%H%M")
-        end_str = max_dt.strftime("%Y%m%d_%H%M")
-    else:
-        start_str = min_dt.strftime("%Y%m%d")
-        end_str = max_dt.strftime("%Y%m%d")
-
-    filename = f"{filename_prefix}_{start_str}_to_{end_str}.png"
+    # Generate output file timestamp string
+    min_dt, max_dt = df_copy["datetime"].min(), df_copy["datetime"].max()
+    fmt = "%Y%m%d_%H%M" if min_dt.date() == max_dt.date() else "%Y%m%d"
+    filename = f"{filename_prefix}_{min_dt.strftime(fmt)}_to_{max_dt.strftime(fmt)}.png"
     output_path = out_dir_path / filename
 
     plt.figure(figsize=(14, 7))
@@ -86,16 +79,12 @@ def _plot_time_series(
             continue
 
         group_sorted = group_df.sort_values("datetime")
-
-        # Dynamic label formatting based on whether multiple geographies are present
-        if has_multiple_geos:
-            legend_label = translate_full_indicator(indicator_id=ind_id, geo_id=geo_id)
-        else:
-            legend_label = translate_indicator(indicator_id=ind_id)
+        legend_label = translate_full_indicator(ind_id, geo_id, has_multiple_geos=has_multiple_geos)
 
         name_spanish = group_df["name"].iloc[0] if "name" in group_df.columns else ""
         geo_name = group_df["geo_name"].iloc[0] if "geo_name" in group_df.columns else ""
 
+        # Resolve color mapping cleanly based on geography or indicator
         if has_multiple_geos:
             color_hex = GEO_COLOR_PALETTE.get(
                 geo_id,
@@ -127,7 +116,6 @@ def _plot_time_series(
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M\n%Y-%m-%d", tz=spain_tz))
 
     plt.gcf().autofmt_xdate()
-
     plt.legend(loc="upper right", frameon=True, shadow=True, facecolor="white")
     plt.tight_layout()
 

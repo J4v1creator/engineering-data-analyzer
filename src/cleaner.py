@@ -1,8 +1,8 @@
 """Cache maintenance engine and expired DB entry cleaner."""
 
 from pathlib import Path
-import time
 import sqlite3
+import time
 
 from config.settings import CACHE_EXPIRATION_DAYS, DEFAULT_DB_PATH, DEFAULT_OUTPUT_DIR
 from src.database import get_connection
@@ -29,7 +29,7 @@ def _clean_directory(target_dir: str | Path, expiration_days: int) -> int:
     deleted_count = 0
 
     for file_item in target_path.iterdir():
-        if not file_item.is_file():
+        if not file_item.is_file() or file_item.name.startswith("."):
             continue
 
         try:
@@ -77,8 +77,10 @@ def _clean_expired_database_records(db_path: str | Path, expiration_days: int) -
             conn.commit()
             deleted_rows = conn.total_changes - initial_changes
 
+        # Run VACUUM if significant rows were deleted to reclaim disk space
         if deleted_rows > 0:
             print(f"🗑️ [CLEANER] Purged {deleted_rows} expired records from SQLite database.")
+            conn.execute("VACUUM;")
 
     except sqlite3.Error as e:
         print(f"❌ [CLEANER] Error cleaning database records: {e}")
