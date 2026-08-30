@@ -98,15 +98,19 @@ def main() -> None:
 
         # 1. Plot Energy Demands (if any were selected)
         if not df_demands.empty:
-            demand_plot_path = plot_energy_demand(df_demands)
-            saved_plots.append(f"📊 Demand Plot: {demand_plot_path}")
-            chart_paths.append(demand_plot_path)
+            demand_paths = plot_energy_demand(df_demands)
+            if demand_paths.get("png"):
+                chart_paths.append(demand_paths["png"])
+                saved_plots.append(f"📊 Demand Plot (PNG):  {demand_paths['png']}")
+                saved_plots.append(f"📊 Demand Plot (HTML): {demand_paths['html']}")
 
         # 2. Plot Energy Prices (if any were selected)
         if not df_prices.empty:
-            price_plot_path = plot_energy_price(df_prices)
-            saved_plots.append(f"💶 Price Plot:  {price_plot_path}")
-            chart_paths.append(price_plot_path)
+            price_paths = plot_energy_price(df_prices)
+            if price_paths.get("png"):
+                chart_paths.append(price_paths["png"])
+                saved_plots.append(f"💶 Price Plot (PNG):   {price_paths['png']}")
+                saved_plots.append(f"💶 Price Plot (HTML):  {price_paths['html']}")
 
         # Output: Generate text files detailing consolidated metrics and performance history
         report_path = generate_text_report(df_filtered, start_dt, end_dt, demand_stats, price_stats, comp_stats, anomalies, market_volume_stats)
