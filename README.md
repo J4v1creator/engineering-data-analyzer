@@ -1,9 +1,9 @@
 # Engineering Data Analyzer
 
 ## Overview
-**Engineering Data Analyzer** is a production-ready, modular Python pipeline designed to automate the ingestion, validation, analytical processing, and visualization of real-world energy datasets.
+**Engineering Data Analyzer** is a production-ready, modular Python pipeline designed to automate the ingestion, validation, analytical processing, visualization, and multi-format export of real-world energy datasets.
 
-Specifically tailored to interface directly with the **Red Eléctrica de España (REE) e·sios API**, the system fetches real-time and historical time-series measurements for both **energy demand ($MW$)** and **energy market prices ($€/MWh$)** across various geographical regions (Peninsular Spain, Canary Islands, Balearic Islands, Ceuta, Melilla, Portugal, France, etc.). The pipeline converts raw HTTP responses into structured DataFrames, generating high-resolution statistical reports, multi-line visualizations, and professionally styled Excel workbooks. The entire architecture enforces strict industry software practices, including static typing (`type hinting`), robust exception handling, dynamic local SQLite database caching, unit testing coverage (`pytest`), and full segregation of business logic from the user interface.
+Specifically tailored to interface directly with the **Red Eléctrica de España (REE) e·sios API**, the system fetches real-time and historical time-series measurements for both **energy demand ($MW$)** and **energy market prices ($€/MWh$)** across various geographical regions (Peninsular Spain, Canary Islands, Balearic Islands, Ceuta, Melilla, Portugal, France, etc.). The pipeline converts raw HTTP responses into structured DataFrames, generating high-resolution statistical text summaries, multi-line visualizations, publication-ready multi-page PDF executive reports, and professionally styled Excel workbooks. The entire architecture enforces strict industry software practices, including static typing (`type hinting`), robust exception handling, dynamic local SQLite database caching, unit testing coverage (`pytest`), and full segregation of business logic from the user interface.
 
 ## 🛠️ Key Features
 * 🌐 **Direct e·sios API Gateway (`esios_client.py`):** Automated REST API requests to Red Eléctrica's servers with token-based authentication (`x-api-key`), custom date range parameters, pagination for regional indicators, and JSON payload parsing.
@@ -16,9 +16,10 @@ Specifically tailored to interface directly with the **Red Eléctrica de España
     * **Market Price Analytics:** Maximum/minimum price detection, time-stamped peak/valley tracking, market price spreads ($Price_{max} - Price_{min}$), and zero/low-price hour tracking ($\le 5.0$ €/MWh).
     * **Market Economic Volume:** Temporal alignment of 5-min real demand and 15-min SPOT prices into 1-hour resolution to calculate total traded market value ($M€$), Volume-Weighted Average Price (VWAP), and peak expenditure hours.
 * ⚠️ **Statistical Anomaly Detection:** Automated screening for abnormal demand spikes or drops using a configurable Z-Score methodology ($> 2.0$ standard deviations).
-* 📉 **High-Resolution Visualizations (`visualizer.py`):** Automated generation of independent, publication-quality multi-line charts saved directly as high-DPI artifacts in `outputs/` for both energy demand and regional price series.
-* 📄 **Automated Reporting System (`report.py`):** Dynamic file writer compiling full execution metadata, specialized price/demand statistics, regional breakdowns, and delta error modeling into structured plain-text reports in `outputs/`.
-* 📊 **Multi-Tab Excel Workbook Exporter (`exporter.py`):** Automated export engine generating multi-tab Excel files (`.xlsx`) containing executive summaries, detailed demand/price statistics, pairwise model comparison metrics, detected anomalies, and structured raw data with dynamic cell styling and merged section headers.
+* 📉 **High-Resolution Visualizations (`visualizer.py`):** Automated generation of independent, publication-quality multi-line charts saved directly as high-DPI PNG artifacts in `outputs/plots/` for both energy demand and regional price series.
+* 📄 **Automated Text Summary System (`text_reporter.py`):** Dynamic file writer compiling full execution metadata, specialized price/demand statistics, regional breakdowns, and delta error modeling into structured plain-text summaries saved in `outputs/reports/`.
+* 📕 **Multi-Page PDF Executive Report Generator (`pdf_reporter.py`):** Advanced report engine leveraging ReportLab to compile cover pages, formatted statistical tables, anomaly breakdowns, and embedded Matplotlib charts into executive-grade PDF documents saved in `outputs/reports/`.
+* 📊 **Multi-Tab Excel Workbook Exporter (`exporter.py`):** Automated export engine generating multi-tab Excel files (`.xlsx`) saved in `outputs/exports/` containing executive summaries, detailed demand/price statistics, pairwise model comparison metrics, detected anomalies, and structured raw data with dynamic cell styling and merged section headers.
 * 🛠️ **Developer Utilities (`scripts/`):** Command-line utility scripts for development environment management, database resetting, and testing without altering core application logic.
 * 🧪 **Automated Testing Suite (`tests/`):** Robust test suite executed with `pytest` ensuring dataset schema validation integrity and core function compliance.
 
@@ -29,27 +30,32 @@ The codebase implements a clean, modular package hierarchy following the single-
 engineering-data-analyzer/
 │
 ├── config/
-│   └── settings.py           # Centralized configuration, dynamic pathlib resolution, and constants
+│   └── settings.py           # Centralized configuration, dynamic pathlib resolution, and styling constants
 │
 ├── data/                     # Isolated database storage
 │   └── esios_cache.db        # Local SQLite cache database (Untracked)
 │
-├── outputs/                  # Isolated pipeline exports (Generated charts, reports and Excel files)
+├── outputs/                  # Organized pipeline artifacts directory
+│   ├── exports/              # Multi-tab Excel workbooks (.xlsx)
+│   ├── plots/                # High-DPI visualization charts (.png)
+│   └── reports/              # PDF executive reports (.pdf) and text summaries (.txt)
 │
 ├── scripts/                  # Developer CLI utilities and administration tools
+├── __init__.py               # Scripts package initialization marker
 │   ├── fetch_raw_sample.py   # Utility to fetch and save unparsed raw API JSON payloads for inspection
 │   ├── inspect_db.py         # Diagnostic utility to inspect cached indicators, timeframe, and record counts
 │   └── reset_db.py           # Utility script to safely wipe local SQLite cache records
 │
 ├── src/                      # Package source root
 │   ├── __init__.py           # Package initialization marker
-│   ├── analyzer.py           # Core mathematics, price spread evaluation, market volume calculation, and Z-Score anomaly modeling
+│   ├── analyzer.py           # Mathematics, price spread evaluation, market volume calculation, and Z-Score modeling
 │   ├── cleaner.py            # Cache maintenance engine and expired DB entry cleaner
 │   ├── cli.py                # Interactive command-line interface mechanics
 │   ├── database.py           # SQLite database connection managers and queries
 │   ├── esios_client.py       # ESIOS API HTTP gateway regional and data loading logic
 │   ├── exporter.py           # Multi-tab Excel export engine with custom formatting and merged section headers
-│   ├── report.py             # Automated text report rendering engine for demand and prices
+│   ├── pdf_reporter.py       # Multi-page PDF executive report generation engine with ReportLab and embedded plots
+│   ├── text_reporter.py      # Automated text summary rendering engine for demand and price metrics
 │   ├── utils.py              # Centralized indicator translation and formatting utilities
 │   ├── validator.py          # Structural verification and timezone-aware datatype firewall
 │   └── visualizer.py         # Matplotlib rendering and charting engine with geographic region mapping
@@ -118,11 +124,14 @@ python -m scripts.fetch_raw_sample
 python -m scripts.fetch_raw_sample 1001
 ```
 
-
 ### Pipeline Workflow
 1. **System Initialization & Cache Maintenance (`cleaner.py` / `database.py`):** Ensures SQLite tables exist and automatically removes obsolete database entries exceeding the TTL threshold.
 2. **Temporal & Demand Filtering (`cli.py`):** Prompts the user via CLI for a date/time window, energy demand categories, and market price indicators.
 3. **Extraction & Cache Lookup (`esios_client.py`):** Fetches dataset from local SQLite cache if present; otherwise, issues authenticated HTTP requests to the e·sios API and stores the results.
 4. **Validation (`validator.py`):** Enforces column schema checks (`id`, `name`, `geo_id`,`geo_name`, `value`, `datetime`), null checks, and timezone consistency.
 5. **Cross-Analysis & Volume Calculation (`analyzer.py`):** Computes dedicated demand metrics, price volatility statistics (spreads and low-price hours), pairwise model evaluations (MAPE, Pearson correlation), regional Z-score calculations, and total wholesale market volume ($M€$) by aligning demand and SPOT price time-series.
-6. **Output Generation:** Displays anomaly summaries and market volume metrics on the terminal, exporting independent demand and price plots (`plot_energy_demand_[TIMESTAMP].png`, `plot_energy_prices_[TIMESTAMP].png`), analytical text reports (`report_energy_demand_[TIMESTAMP].txt`), and formatted multi-tab Excel workbooks (`energy_analysis_[TIMESTAMP].xlsx`) directly into `outputs/`.
+6. **Output Generation:** Displays anomaly summaries and market volume metrics on the terminal, exportingstructured artifacts into dedicated `outputs/` subdirectories:
+    * 📈 **Plots (`outputs/plots/`):** `plot_energy_demands_[TIMEFRAME].png`, `plot_energy_prices_[TIMEFRAME].png`
+    * 📕 **PDF Report (`outputs/reports/`):** `report_energy_analysis_[TIMEFRAME].pdf`
+    * 📄 **Text Summary (`outputs/reports/`):** `summary_energy_analysis_[TIMEFRAME].txt`
+    * 📊 **Excel Dataset (`outputs/exports/`):** `dataset_export_[TIMEFRAME].xlsx`
