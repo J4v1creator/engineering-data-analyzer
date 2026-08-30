@@ -10,13 +10,13 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from config.settings import (
-    DEFAULT_OUTPUT_DIR,
     PDF_BG_LIGHT_COLOR,
     PDF_CHART_HEIGHT,
     PDF_CHART_WIDTH,
     PDF_MARGIN,
     PDF_PRIMARY_COLOR,
     PDF_SECONDARY_COLOR,
+    REPORTS_OUTPUT_DIR,
 )
 from src.utils import format_mw, format_price, translate_indicator
 
@@ -367,7 +367,7 @@ def generate_pdf_report(
     anomalies: dict | None = None,
     market_volume_stats: dict | None = None,
     chart_paths: list[str | Path] | None = None,
-    output_dir: str | Path = DEFAULT_OUTPUT_DIR,
+    output_dir: str | Path = REPORTS_OUTPUT_DIR,
 ) -> str:
     """Generates a complete, styled PDF report including tables, statistics, and charts.
 

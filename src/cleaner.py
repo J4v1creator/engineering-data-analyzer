@@ -4,7 +4,7 @@ from pathlib import Path
 import sqlite3
 import time
 
-from config.settings import CACHE_EXPIRATION_DAYS, DEFAULT_DB_PATH, DEFAULT_OUTPUT_DIR
+from config.settings import CACHE_EXPIRATION_DAYS, DEFAULT_DB_PATH, OUTPUT_DIR
 from src.database import get_connection
 
 
@@ -90,7 +90,7 @@ def _clean_expired_database_records(db_path: str | Path, expiration_days: int) -
 
 def clean_expired_cache(
     db_path: str | Path = DEFAULT_DB_PATH,
-    output_dir: str | Path = DEFAULT_OUTPUT_DIR,
+    output_dir: str | Path = OUTPUT_DIR,
     expiration_days: int = CACHE_EXPIRATION_DAYS,
 ) -> None:
     """Scans system output directory and purges expired database records.

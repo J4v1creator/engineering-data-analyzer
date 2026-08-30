@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from config.settings import DEFAULT_OUTPUT_DIR
+from config.settings import REPORTS_OUTPUT_DIR
 from src.utils import format_mw, format_price, translate_indicator
 
 
@@ -192,7 +192,7 @@ def generate_text_report(
     comp_stats: dict | None = None,
     anomalies: dict | None = None,
     market_volume_stats: dict | None = None,
-    output_dir: str | Path = DEFAULT_OUTPUT_DIR,
+    output_dir: str | Path = REPORTS_OUTPUT_DIR,
 ) -> str:
     """"Generates a complete text report including demand, prices, models, anomalies, and market volume.
 

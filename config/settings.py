@@ -13,12 +13,25 @@ ESIOS_API_TOKEN = os.getenv("ESIOS_API_TOKEN", "")
 # Resolved dynamically relative to the project root
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
-DEFAULT_OUTPUT_DIR = BASE_DIR / "outputs"
+OUTPUT_DIR = BASE_DIR / "outputs"
 DEFAULT_DB_PATH = DATA_DIR / "esios_cache.db"
 
-# Ensure required storage directories exist at application runtime
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+# Subdirectories for generated artifacts
+EXPORTS_OUTPUT_DIR = OUTPUT_DIR / "exports"
+PLOTS_OUTPUT_DIR = OUTPUT_DIR / "plots"
+REPORTS_OUTPUT_DIR = OUTPUT_DIR / "reports"
+
+# Ensure all required storage and output subdirectories exist on startup
+ALL_DIRECTORIES = [
+    DATA_DIR,
+    OUTPUT_DIR,
+    EXPORTS_OUTPUT_DIR,
+    PLOTS_OUTPUT_DIR,
+    REPORTS_OUTPUT_DIR,
+]
+
+for directory in ALL_DIRECTORIES:
+    directory.mkdir(parents=True, exist_ok=True)
 
 # --- Analysis Parameters ---
 DEFAULT_ANOMALY_THRESHOLD = 2.0  # Standard deviation threshold for Z-score

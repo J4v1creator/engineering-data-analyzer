@@ -9,13 +9,13 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from config.settings import (
-    DEFAULT_OUTPUT_DIR,
     DEMAND_INDICATOR_IDS,
     EXCEL_BORDER_COLOR,
     EXCEL_PRIMARY_FILL_COLOR,
     EXCEL_PRIMARY_SECTION_KEYWORDS,
     EXCEL_SECONDARY_FILL_COLOR,
     EXCEL_SECTION_GAP,
+    EXPORTS_OUTPUT_DIR,
     PRICE_INDICATOR_IDS
 )
 from src.utils import translate_indicator, translate_geography
@@ -372,7 +372,7 @@ def export_to_excel(
     comp_stats: dict,
     anomalies: dict,
     market_volume_stats: dict,
-    output_dir: str | Path = DEFAULT_OUTPUT_DIR,
+    output_dir: str | Path = EXPORTS_OUTPUT_DIR,
 ) -> str:
     """Generates a styled, multi-tab Excel workbook containing energy market analytics.
 

@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from config.settings import (
-    DEFAULT_OUTPUT_DIR,
     DEMAND_COLOR_PALETTE,
     DEMAND_INDICATOR_IDS,
     GEO_COLOR_PALETTE,
     GLOBAL_GEO_ORDER,
+    PLOTS_OUTPUT_DIR,
     PRICE_INDICATOR_IDS,
 )
 from src.utils import translate_full_indicator
@@ -24,8 +24,8 @@ def _plot_time_series(
     y_label: str,
     filename_prefix: str,
     color_palette: dict[int | str, str],
+    output_dir: str | Path,
     priority_order: list[int] | None = None,
-    output_dir: str | Path = DEFAULT_OUTPUT_DIR,
 ) -> str:
     """Internal helper function to generate and save standardized time-series plots.
 
@@ -35,8 +35,8 @@ def _plot_time_series(
         y_label (str): Label for the Y-axis including units.
         filename_prefix (str): Prefix for the saved PNG file (e.g., 'demand' or 'price').
         color_palette (dict): Palette containing hex color mappings for each indicator/geo.
-        priority_order (list[int] | None): Order of indicator IDs to display.
         output_dir (str | Path): Destination directory for the plot.
+        priority_order (list[int] | None): Order of indicator IDs to display.
 
     Returns:
         str: Absolute file path where the plot was saved.
@@ -126,7 +126,7 @@ def _plot_time_series(
     return str(output_path)
 
 
-def plot_energy_demand(df: pd.DataFrame, output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> str:
+def plot_energy_demand(df: pd.DataFrame, output_dir: str | Path = PLOTS_OUTPUT_DIR) -> str:
     """Generates a multi-line plot of energy demand (MW) over time.
 
     Args:
@@ -143,12 +143,12 @@ def plot_energy_demand(df: pd.DataFrame, output_dir: str | Path = DEFAULT_OUTPUT
         y_label="Energy Demand (MW)",
         filename_prefix="plot_energy_demands",
         color_palette=DEMAND_COLOR_PALETTE,
-        priority_order=DEMAND_INDICATOR_IDS,
         output_dir=output_dir,
+        priority_order=DEMAND_INDICATOR_IDS,
     )
 
 
-def plot_energy_price(df: pd.DataFrame, output_dir: str | Path = DEFAULT_OUTPUT_DIR) -> str:
+def plot_energy_price(df: pd.DataFrame, output_dir: str | Path = PLOTS_OUTPUT_DIR) -> str:
     """Generates a multi-line plot of energy prices (€/MWh) over time.
 
     Args:
@@ -165,6 +165,6 @@ def plot_energy_price(df: pd.DataFrame, output_dir: str | Path = DEFAULT_OUTPUT_
         y_label="Energy Price (€/MWh)",
         filename_prefix="plot_energy_prices",
         color_palette=GEO_COLOR_PALETTE,
-        priority_order=PRICE_INDICATOR_IDS,
         output_dir=output_dir,
+        priority_order=PRICE_INDICATOR_IDS,
     )
