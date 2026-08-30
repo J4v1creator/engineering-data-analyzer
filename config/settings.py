@@ -21,12 +21,18 @@ EXPORTS_OUTPUT_DIR = OUTPUT_DIR / "exports"
 PLOTS_OUTPUT_DIR = OUTPUT_DIR / "plots"
 REPORTS_OUTPUT_DIR = OUTPUT_DIR / "reports"
 
+# Output routes within outputs/plots
+PLOTS_HTML_DIR = PLOTS_OUTPUT_DIR / "interactive"
+PLOTS_STATIC_DIR = PLOTS_OUTPUT_DIR / "static"
+
 # Ensure all required storage and output subdirectories exist on startup
 ALL_DIRECTORIES = [
     DATA_DIR,
     OUTPUT_DIR,
     EXPORTS_OUTPUT_DIR,
     PLOTS_OUTPUT_DIR,
+    PLOTS_HTML_DIR,
+    PLOTS_STATIC_DIR,
     REPORTS_OUTPUT_DIR,
 ]
 
