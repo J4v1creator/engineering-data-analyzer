@@ -80,7 +80,7 @@ engineering-data-analyzer/
 * **Geographic Coverage:** Peninsular Spain, Canary Islands, Balearic Islands, Ceuta, Melilla, and interconnected European markets (Portugal, France, Germany, Belgium, Netherlands).
 * **Time Resolution:** Continuous 5-minute to hourly intervals.
 * **Timezone Handling:** UTC ISO 8601 network requests automatically normalized to Peninsular Spanish local time (Europe/Madrid).
-* **Licensing:** Open Data (Subject to ESIOS/REE API terms of use and token registration).
+* **Licensing:** Open Data (Subject to ESIOS/REE API terms of use and project GNU GPLv3 license).
 
 ## 🚀 Quick Start & Execution
 ### Prerequisites
@@ -139,3 +139,6 @@ python -m scripts.fetch_raw_sample 1001
     * 📕 **PDF Report (`outputs/reports/`):** `report_energy_analysis_[TIMEFRAME].pdf`
     * 📄 **Text Summary (`outputs/reports/`):** `summary_energy_analysis_[TIMEFRAME].txt`
     * 📊 **Excel Dataset (`outputs/exports/`):** `dataset_export_[TIMEFRAME].xlsx`
+
+## 📜 License
+This project is licensed under the **GNU General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
