@@ -50,7 +50,6 @@ def calculate_demand_statistics(df_demands: pd.DataFrame, selected_demands: list
             "min": float(values.min()),
             "std_dev": float(values.std()) if len(values) > 1 else 0.0,
             "peak_time": format_datetime(max_row["datetime"]),
-            "geo_name": group["geo_name"].iloc[0] if "geo_name" in group.columns else "Unknown",
         }
 
         print(f"📊 Demand stats calculated for: {label}")
@@ -104,7 +103,6 @@ def calculate_price_statistics(df_prices: pd.DataFrame, selected_prices: list[in
             "min_time": format_datetime(min_row["datetime"]),
             "spread": float(values.max() - values.min()),
             "zero_low_price_hours": int((values <= 5.0).sum()),
-            "mean": float(values.mean()),
         }
 
         print(f"📊 Price stats calculated for: {series_name}")
@@ -128,18 +126,18 @@ def compare_demand_models(df_demands: pd.DataFrame, comparison_targets: tuple[in
     if not comparison_targets or len(comparison_targets) != 2:
         return {}
 
-    id_a, id_b = comparison_targets[0], comparison_targets[1]
+    id_baseline, id_target = comparison_targets[0], comparison_targets[1]
 
     # Validate presence of both indicator IDs in dataset
-    if id_a not in df_demands["indicator_id"].values or id_b not in df_demands["indicator_id"].values:
-        print(f"⚠️ Advanced comparison skipped: One or both target IDs ({id_a}, {id_b}) are not present.")
+    if id_baseline not in df_demands["indicator_id"].values or id_target not in df_demands["indicator_id"].values:
+        print(f"⚠️ Advanced comparison skipped: One or both target IDs ({id_baseline}, {id_target}) are not present.")
         return {}
 
     # Translate IDs to user-friendly names for printing/reporting
-    model_a_en = translate_indicator(indicator_id=id_a)
-    model_b_en = translate_indicator(indicator_id=id_b)
+    baseline_name = translate_indicator(indicator_id=id_baseline)
+    target_name = translate_indicator(indicator_id=id_target)
 
-    print(f"\n🧠 Running advanced comparative analysis between '{model_a_en}' and '{model_b_en}'...")
+    print(f"\n🧠 Running advanced comparative analysis between '{baseline_name}' and '{target_name}'...")
 
     # Pivot table using indicator_id (guarantees numerical matching)
     pivoted_df = df_demands.pivot_table(
@@ -150,7 +148,7 @@ def compare_demand_models(df_demands: pd.DataFrame, comparison_targets: tuple[in
     )
 
     rows_before = len(pivoted_df)
-    pivoted_df = pivoted_df.dropna(subset=[id_a, id_b])
+    pivoted_df = pivoted_df.dropna(subset=[id_baseline, id_target])
     rows_after = len(pivoted_df)
 
     # Check if there are valid rows to analyze
@@ -161,8 +159,8 @@ def compare_demand_models(df_demands: pd.DataFrame, comparison_targets: tuple[in
     if rows_before != rows_after:
         print(f"ℹ️ {rows_before - rows_after} timestamps excluded due to missing values in target series.")
 
-    series_a = pivoted_df[id_a]
-    series_b = pivoted_df[id_b]
+    series_a = pivoted_df[id_baseline]
+    series_b = pivoted_df[id_target]
 
     # Error and correlation metrics
     pivoted_df["difference"] = series_a - series_b
@@ -175,8 +173,8 @@ def compare_demand_models(df_demands: pd.DataFrame, comparison_targets: tuple[in
     correlation = float(series_a.corr(series_b))
 
     return {
-        "model_a": id_a,
-        "model_b": id_b,
+        "baseline_id": id_baseline,
+        "target_id": id_target,
         "mean_difference": float(pivoted_df["difference"].mean()),
         "max_difference_value": max_diff_value,
         "max_difference_time": format_datetime(max_diff_idx),
@@ -185,67 +183,54 @@ def compare_demand_models(df_demands: pd.DataFrame, comparison_targets: tuple[in
     }
 
 
-def detect_demand_anomalies(df_demands: pd.DataFrame, threshold: float = DEFAULT_ANOMALY_THRESHOLD) -> dict[str, list[dict]]:
+def detect_demand_anomalies(df_demands: pd.DataFrame, threshold: float = DEFAULT_ANOMALY_THRESHOLD) -> list[dict]:
     """Detects abnormal spikes or drops in demand series using Z-Score methodology.
 
-    Args:
-        df_demands (pd.DataFrame): Filtered demand DataFrame.
-        threshold (float): Z-score cut-off threshold.
-
     Returns:
-        dict[str, list[dict]]: Dictionary mapping demand labels to lists of anomaly events.
+        list[dict]: List of anomaly event records ready for display.
     """
-    # Early exit if DataFrame is empty or missing required columns
-    if df_demands.empty or "indicator_id" not in df_demands.columns or "geo_id" not in df_demands.columns:
-        print("⚠️ [ANOMALIES] Empty dataset or missing required columns. Skipping analysis.")
-        return {}
+    if df_demands.empty or "indicator_id" not in df_demands.columns:
+        return []
 
     print("\n🔍 Scanning for statistical anomalies in energy demand series...")
-    anomalies_report = {}
+    anomalies_list = []
+    has_multiple_geos = df_demands["geo_id"].nunique() > 1 if "geo_id" in df_demands.columns else False
 
-    df_filtered = df_demands.copy()
+    # Agrupamos por indicador y geografía
+    group_cols = ["indicator_id", "geo_id"] if "geo_id" in df_demands.columns else ["indicator_id"]
 
-    # Determine categories from unique values present in the input DataFrame
-    present_indicators = df_filtered["indicator_id"].unique()
-    df_filtered.loc[:, "indicator_id"] = pd.Categorical(df_filtered["indicator_id"], categories=present_indicators, ordered=True)
-
-    # Sort rows based on categorical priority
-    df_filtered = df_filtered.sort_values("indicator_id")
-
-    has_multiple_geos = df_filtered["geo_id"].nunique() > 1
-
-    # Group by indicator and region (sort=False and observed=True keep categorical order)
-    for (ind_id, geo_id), group_df in df_filtered.groupby(["indicator_id", "geo_id"], sort=False, observed=True):
-        if len(group_df) < 3:
+    for keys, group in df_demands.groupby(group_cols, observed=True):
+        if len(group) < 3:
             continue
 
-        mean_val = group_df["value"].mean()
-        std_dev = group_df["value"].std()
+        ind_id = keys[0] if isinstance(keys, tuple) else keys
+        geo_id = keys[1] if isinstance(keys, tuple) and len(keys) > 1 else 3
 
-        # Avoid division by zero when standard deviation is zero or NaN
+        mean_val = group["value"].mean()
+        std_dev = group["value"].std()
+
         if std_dev == 0 or pd.isna(std_dev):
             continue
 
-        # Z-Score calculation: (X - μ) / σ
-        z_scores = (group_df["value"] - mean_val) / std_dev
-        anomaly_rows = group_df[z_scores.abs() > threshold]
+        # Cálculo vectorizado del Z-Score
+        z_scores = (group["value"] - mean_val) / std_dev
+        anomalies = group[z_scores.abs() > threshold].copy()
 
-        if not anomaly_rows.empty:
+        if not anomalies.empty:
             series_label = translate_full_indicator(ind_id, geo_id, has_multiple_geos=has_multiple_geos)
-            geo_name = group_df["geo_name"].iloc[0] if "geo_name" in group_df.columns else "Unknown"
 
-            anomalies_report[series_label] = [
-                {
-                    "datetime": format_datetime(row["datetime"]),
-                    "value": float(row["value"]),
-                    "type": "SPIKE 📈" if row["value"] > mean_val else "DROP 📉",
-                    "deviation": float(row["value"] - mean_val),
-                    "geo_name": str(geo_name),
-                }
-                for _, row in anomaly_rows.iterrows()
-            ]
+            # Asignación vectorizada de columnas
+            anomalies["Series"] = series_label
+            anomalies["Timestamp"] = anomalies["datetime"].apply(format_datetime)
+            anomalies["Value (MW)"] = anomalies["value"].round(2)
+            anomalies["Type"] = anomalies["value"].apply(lambda v: "SPIKE 📈" if v > mean_val else "DROP 📉")
+            anomalies["Deviation (MW)"] = (anomalies["value"] - mean_val).round(2)
 
-    return anomalies_report
+            # Seleccionamos las columnas finales y las añadimos a la lista
+            records = anomalies[["Timestamp", "Series", "Type", "Value (MW)", "Deviation (MW)"]].to_dict("records")
+            anomalies_list.extend(records)
+
+    return anomalies_list
 
 
 def calculate_market_economic_volume(df: pd.DataFrame) -> dict:
