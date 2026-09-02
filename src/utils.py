@@ -1,6 +1,6 @@
 """Centralized indicator translation, formatting, and helper utilities."""
 
-from config.settings import DEMAND_INDICATOR_IDS,GEOGRAPHY_TRANSLATIONS, INDICATOR_TRANSLATIONS, PRICE_INDICATOR_IDS
+from config.settings import GEOGRAPHY_TRANSLATIONS, INDICATOR_TRANSLATIONS
 
 
 def translate_indicator(indicator_id: int) -> str:
