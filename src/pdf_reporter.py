@@ -265,11 +265,11 @@ def _build_comparison_section(comp_stats: dict | None) -> list:
     return elements
 
 
-def _build_anomalies_section(anomalies: dict | None) -> list:
+def _build_anomalies_section(anomalies: list[dict] | None) -> list:
     """Formats detected anomalies into a table for the PDF.
 
     Args:
-        anomalies (dict | None): Dictionary containing detected anomaly events grouped by series label.
+        anomalies (list[dict] | None): List of detected anomaly event records.
 
     Returns:
         list: Flowable elements (Paragraphs, Tables, Spacers) for the PDF story.
@@ -277,16 +277,21 @@ def _build_anomalies_section(anomalies: dict | None) -> list:
     elements = [Paragraph("5. STATISTICAL ANOMALY DETECTION (Z-SCORE > 2.0)", h2_style)]
     
     rows = []
-    if anomalies and isinstance(anomalies, dict):
-        for series_label, issues in anomalies.items():
-            for issue in issues:
-                rows.append([
-                    Paragraph(str(series_label), cell_bold),
-                    Paragraph(issue["type"], cell_style),
-                    Paragraph(str(issue["datetime"]), cell_style),
-                    Paragraph(format_mw(issue["value"]), cell_style),
-                    Paragraph(format_mw(issue["deviation"]), cell_style),
-                ])
+    if anomalies and isinstance(anomalies, list):
+        for issue in anomalies:
+            series = issue.get("Series", "N/A")
+            type_label = issue.get("Type", "N/A")
+            timestamp = issue.get("Timestamp", "N/A")
+            val = issue.get("Value (MW)", 0.0)
+            dev = issue.get("Deviation (MW)", 0.0)
+
+            rows.append([
+                Paragraph(str(series), cell_bold),
+                Paragraph(str(type_label), cell_style),
+                Paragraph(str(timestamp), cell_style),
+                Paragraph(format_mw(val), cell_style),
+                Paragraph(format_mw(dev), cell_style),
+            ])
 
     if not rows:
         elements.extend([

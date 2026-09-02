@@ -282,21 +282,21 @@ def _build_statistical_analysis_tab(writer: pd.ExcelWriter, demand_stats: dict, 
         _write_section(writer, sheet_name, "DETAILED PRICE STATISTICS (€/MWh)", df_price, current_row)
 
 
-def _build_models_anomalies_tab(writer: pd.ExcelWriter, comp_stats: dict, anomalies: dict) -> None:
+def _build_models_anomalies_tab(writer: pd.ExcelWriter, comp_stats: dict, anomalies: list[dict] | None) -> None:
     """Builds the Models & Anomalies worksheet of the Excel report.
 
     Args:
         writer (pd.ExcelWriter): Excel writer used to create and populate the workbook.
         comp_stats (dict): Statistics from the pairwise comparison of demand models.
-        anomalies (dict): Detected statistical anomalies and outliers grouped by indicator series.
+        anomalies (list[dict] | None): List of detected anomaly event records.
     """
     sheet_name = "Models & Anomalies"
     current_row = 1
 
     # Model Comparison
     if comp_stats:
-        model_a_id = comp_stats.get("model_a")
-        model_b_id = comp_stats.get("model_b")
+        model_a_id = comp_stats.get("baseline_id")
+        model_b_id = comp_stats.get("target_id")
 
         model_a_name = translate_indicator(indicator_id=model_a_id) if isinstance(model_a_id, int) else str(model_a_id)
         model_b_name = translate_indicator(indicator_id=model_b_id) if isinstance(model_b_id, int) else str(model_b_id)
@@ -313,21 +313,21 @@ def _build_models_anomalies_tab(writer: pd.ExcelWriter, comp_stats: dict, anomal
         current_row = _write_section(writer, sheet_name, "PAIRWISE DEMAND MODEL COMPARISON", df_comp, current_row)
 
     # Anomalies
-    anomaly_rows = []
-    if isinstance(anomalies, dict):
-        for series_label, rec_list in anomalies.items():
-            for rec in rec_list:
-                anomaly_rows.append({
-                    "Timestamp": str(rec.get("datetime")),
-                    "Indicator": series_label,
-                    "Observed Value (MW)": rec.get("value"),
-                    "Deviation": rec.get("deviation"),
-                    "Anomaly Type": rec.get("type"),
-                })
+    if anomalies and isinstance(anomalies, list):
+        # Como anomalies ya es una lista plana de diccionarios, la convertimos directamente
+        df_anomalies = pd.DataFrame(anomalies)
 
-    df_anomalies = pd.DataFrame(anomaly_rows)
-    if not df_anomalies.empty:
-        _write_section(writer, sheet_name, "DETECTED STATISTICAL ANOMALIES & OUTLIERS", df_anomalies, current_row)
+        # Mapeamos las columnas para alinearlas con la nomenclatura de la hoja Excel si es necesario
+        rename_cols = {
+            "Series": "Indicator",
+            "Type": "Anomaly Type",
+            "Value (MW)": "Observed Value (MW)",
+            "Deviation (MW)": "Deviation"
+        }
+        df_anomalies = df_anomalies.rename(columns=rename_cols)
+
+        if not df_anomalies.empty:
+            _write_section(writer, sheet_name, "DETECTED STATISTICAL ANOMALIES & OUTLIERS", df_anomalies, current_row)
 
 
 def _build_clean_data_tab(writer: pd.ExcelWriter, df: pd.DataFrame) -> None:

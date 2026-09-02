@@ -108,36 +108,36 @@ def _build_comparison_section(comp_stats: dict | None) -> list[str]:
     return lines
 
 
-def _build_anomalies_section(anomalies: dict | None) -> list[str]:
+def _build_anomalies_section(anomalies: list[dict] | None) -> list[str]:
     """Helper to format the Statistical Anomaly Detection section lines.
 
     Args:
-        anomalies (dict | None): Dictionary of detected anomalies.
+        anomalies (list[dict] | None): List of detected anomaly event records.
 
     Returns:
-        list [str]: Formatted lines for the Energy Demand statistical summary.
+        list[str]: Formatted lines for the Energy Demand statistical summary.
     """
     lines = [
         "--------------------------------------------------",
         "5. STATISTICAL ANOMALY DETECTION (Z-SCORE > 2.0)",
         "--------------------------------------------------",
     ]
-    has_printed_anomalies = False
 
-    if anomalies and isinstance(anomalies, dict):
-        for series_label, issues in anomalies.items():
-            if issues:
-                has_printed_anomalies = True
-                lines.append(f"\n• {str(series_label).upper()}:")
-                for issue in issues:
-                    lines.append(
-                        f"    ↳ [{issue['type']}] At {issue['datetime']} -> "
-                        f"{format_mw(issue['value'])} (Deviation: {format_mw(issue['deviation'])})"
-                    )
+    if anomalies and isinstance(anomalies, list):
+        for issue in anomalies:
+            series = issue.get("Series", "UNKNOWN")
+            timestamp = issue.get("Timestamp", "N/A")
+            anomaly_type = issue.get("Type", "ANOMALY")
+            value = issue.get("Value (MW)", 0.0)
+            deviation = issue.get("Deviation (MW)", 0.0)
 
-    if not has_printed_anomalies:
+            lines.append(
+                f"  ↳ [{anomaly_type}] {series} at {timestamp} -> "
+                f"{format_mw(value)} (Deviation: {format_mw(deviation)})"
+            )
+    else:
         lines.append("- No statistical anomalies detected in energy demand data.")
-    
+
     lines.append("")
     return lines
 
