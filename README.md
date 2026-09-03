@@ -3,14 +3,17 @@
 ## Overview
 **Engineering Data Analyzer** is a production-ready, modular Python pipeline designed to automate the ingestion, validation, analytical processing, visualization, and multi-format export of real-world energy datasets.
 
-Specifically tailored to interface directly with the **Red Eléctrica de España (REE) e·sios API**, the system fetches real-time and historical time-series measurements for both **energy demand ($MW$)** and **energy market prices ($€/MWh$)** across various geographical regions (Peninsular Spain, Canary Islands, Balearic Islands, Ceuta, Melilla, Portugal, France, etc.). The pipeline converts raw HTTP responses into structured DataFrames, generating high-resolution statistical text summaries, interactive Plotly visualizations, publication-ready multi-page PDF executive reports, and professionally styled Excel workbooks. The entire architecture enforces strict industry software practices, including static typing (`type hinting`), robust exception handling, dynamic local SQLite database caching, unit testing coverage (`pytest`), and full segregation of business logic from the user interface.
+Specifically tailored to interface directly with the **Red Eléctrica de España (REE) e·sios API**, the system fetches real-time and historical time-series measurements for both **energy demand ($MW$)** and **energy market prices ($€/MWh$)** across various geographical regions (Peninsular Spain, Canary Islands, Balearic Islands, Ceuta, Melilla, Portugal, France, etc.). The pipeline converts raw HTTP responses into structured DataFrames, generating high-resolution statistical text summaries, interactive Plotly visualizations, publication-ready multi-page PDF executive reports, and professionally styled Excel workbooks.
+
+The system features both an **Interactive Command-Line Interface (`main.py` / `cli.py`)** and a modern, reactive **Streamlit Web Application (`app.py`)** for visual exploration. The entire architecture enforces strict software engineering practices, including static typing (`type hinting`), robust exception handling, dynamic local SQLite database caching, unit testing coverage (`pytest`), and full segregation of business logic from user interfaces.
 
 ## 🛠️ Key Features
 * 🌐 **Direct e·sios API Gateway (`esios_client.py`):** Automated REST API requests to Red Eléctrica's servers with token-based authentication (`x-api-key`), custom date range parameters, pagination for regional indicators, and JSON payload parsing.
+* 🖥️ **Interactive Streamlit Web Dashboard (`app.py`):** Full-featured web interface featuring sidebar date/indicator controls, key KPI metric cards, progressive statistical tables, dynamic model comparison settings, multi-tab layout, and direct file downloads.
 * 🗄️ **SQLite Persistence Layer (`database.py`):** High-performance local caching (`data/esios_cache.db`) that eliminates redundant network requests and stores time-series historical data efficiently.
 * 📦 **Smart Cache Expiration (`cleaner.py`):** Maintenance engine that periodically cleans expired database entries based on configurable Time-to-Live (TTL) policies.
 * 🛡️ **Data Quality Firewall (`validator.py`):** Strict pre- and post-validation system checking for expected schemas, correct technical datatypes, null value elimination, and duplicate row prevention.
-* 🎛️ **Interactive Console Interface (`cli.py`):** Dynamic CLI menus allowing users to easily define temporal scope, isolate specific demand and price categories (e.g., Spot Market, PVPC), or trigger comparative multi-selections via index processing.
+* 🎛️ **Interactive Console Interface (`cli.py`):** Dynamic CLI menus allowing terminal users to easily define temporal scope, isolate specific demand and price categories (e.g., Spot Market, PVPC), or trigger comparative multi-selections via index processing.
 * 🧠 **Advanced Analytics & Cross-Modeling (`analyzer.py`):** Specialized mathematical metrics separated by indicator type:
     * **Demand Analytics:** Mean, median, standard deviation, peak load times, and dynamic cross-model evaluation measuring Mean Absolute Percentage Error (MAPE) and Pearson Correlation ($r$).
     * **Market Price Analytics:** Maximum/minimum price detection, time-stamped peak/valley tracking, market price spreads ($Price_{max} - Price_{min}$), and zero/low-price hour tracking ($\le 5.0$ €/MWh).
@@ -41,7 +44,7 @@ engineering-data-analyzer/
 │   └── reports/              # PDF executive reports (.pdf) and text summaries (.txt)
 │
 ├── scripts/                  # Developer CLI utilities and administration tools
-├── __init__.py               # Scripts package initialization marker
+│   ├── __init__.py           # Scripts package initialization marker
 │   ├── fetch_raw_sample.py   # Utility to fetch and save unparsed raw API JSON payloads for inspection
 │   ├── inspect_db.py         # Diagnostic utility to inspect cached indicators, timeframe, and record counts
 │   └── reset_db.py           # Utility script to safely wipe local SQLite cache records
@@ -67,7 +70,8 @@ engineering-data-analyzer/
 ├── .env                      # Environment variables (API Token - Untracked)
 ├── .env.example              # Example template for environment variables (Tracked)
 ├── .gitignore                # Specifies intentionally untracked files to ignore
-├── main.py                   # Central execution entry point
+├── app.py                    # Streamlit Web Application entry point
+├── main.py                   # Central CLI execution entry point
 ├── README.md                 # Project documentation
 └── requirements.txt          # List of external Python dependencies
 ```
@@ -79,7 +83,7 @@ engineering-data-analyzer/
     * **Energy Prices:** Daily Spot Market Price and PVPC Retail Rates measured in Euros per Megawatt-hour ($€/MWh$).
 * **Geographic Coverage:** Peninsular Spain, Canary Islands, Balearic Islands, Ceuta, Melilla, and interconnected European markets (Portugal, France, Germany, Belgium, Netherlands).
 * **Time Resolution:** Continuous 5-minute to hourly intervals.
-* **Timezone Handling:** UTC ISO 8601 network requests automatically normalized to Peninsular Spanish local time (Europe/Madrid).
+* **Timezone Handling:** UTC ISO 8601 network requests automatically normalized to Peninsular Spanish local time (`Europe/Madrid`).
 * **Licensing:** Open Data (Subject to ESIOS/REE API terms of use and project GNU GPLv3 license).
 
 ## 🚀 Quick Start & Execution
@@ -103,8 +107,20 @@ To verify that the validation pipeline passes all unit tests, run:
 pytest
 ```
 
-### Execution
-To initiate the main pipeline, execute the orchestrator script from your terminal:
+### Running the Application
+**Option A: Streamlit Web Interface (Recommended)**
+
+To launch the interactive web dashboard in your browser, run:
+```bash
+streamlit run app.py
+```
+* Use the sidebar to pick dates, select indicators, and configure pairwise model comparisons.
+* Click Run Analysis to execute the pipeline.
+* Browse through interactive Plotly time-series, view key metrics, inspect anomaly logs, and download generated PDF, Excel, or Text reports directly from the UI.
+
+**Option B: Command-Line Interface (CLI)**
+
+To initiate the terminal-based interactive pipeline, execute:
 ```bash
 python main.py
 ```
@@ -125,20 +141,18 @@ python -m scripts.fetch_raw_sample 1001
 ```
 
 ### Pipeline Workflow
-1. **System Initialization & Cache Maintenance (`cleaner.py` / `database.py`):** Ensures SQLite tables exist and automatically removes obsolete database entries exceeding the TTL threshold.
-2. **Temporal & Demand Filtering (`cli.py`):** Prompts the user via CLI for a date/time window, energy demand categories, and market price indicators.
-3. **Extraction & Cache Lookup (`esios_client.py`):** Fetches dataset from local SQLite cache if present; otherwise, issues authenticated HTTP requests to the e·sios API and stores the results.
-4. **Validation (`validator.py`):** Enforces column schema checks (`id`, `name`, `geo_id`,`geo_name`, `value`, `datetime`), null checks, and timezone consistency.
-5. **Cross-Analysis & Volume Calculation (`analyzer.py`):** Computes dedicated demand metrics, price volatility statistics (spreads and low-price hours), pairwise model evaluations (MAPE, Pearson correlation), regional Z-score calculations, and total wholesale market volume ($M€$) by aligning demand and SPOT price time-series.
-6. **Output Generation:** Displays anomaly summaries and market volume metrics on the terminal, exportingstructured artifacts into dedicated `outputs/` subdirectories:
-    * 📈 **Plots (`outputs/plots/`):** Generates both interactive HTML and static PNG files:
-    `plot_energy_demands_[TIMEFRAME].html`,
-    `plot_energy_demands_[TIMEFRAME].png`,
-    `plot_energy_prices_[TIMEFRAME].html`,
-    `plot_energy_prices_[TIMEFRAME].png`
-    * 📕 **PDF Report (`outputs/reports/`):** `report_energy_analysis_[TIMEFRAME].pdf`
-    * 📄 **Text Summary (`outputs/reports/`):** `summary_energy_analysis_[TIMEFRAME].txt`
-    * 📊 **Excel Dataset (`outputs/exports/`):** `dataset_export_[TIMEFRAME].xlsx`
+1. **System Initialization & Cache Maintenance (`cleaner.py` / `database.py`):** Initializes SQLite schemas and automatically removes obsolete cached entries exceeding the TTL threshold upon application startup.
+2. **Execution Mode & Parameter Selection:**
+   * **Web Interface (`app.py`):** Parameters, date ranges, and model comparison settings are selected dynamically via Streamlit sidebar controls.
+   * **CLI Interface (`cli.py`):** Interactive terminal prompts guide the user step-by-step through configuration options.
+3. **Extraction & Cache Lookup (`esios_client.py`):** Checks the local SQLite database (`esios_cache.db`) for valid cached records; if missing, issues authenticated REST API requests to REE e·sios and persists the new payload.
+4. **Validation (`validator.py`):** Verifies schema compliance (`id`, `name`, `geo_id`, `geo_name`, `value`, `datetime`), enforces strict datatypes, cleans nulls, and standardizes timezones to `Europe/Madrid`.
+5. **Analytics & Volume Modeling (`analyzer.py`):** Calculates statistical metrics, price volatility/spreads, pairwise model evaluations (MAPE, Pearson $r$), Z-Score demand anomalies ($> 2.0$), and wholesale market economic volume ($M€$).
+6. **Artifact Generation & Display:** Renders dashboard UI elements or CLI text metrics while writing production-ready artifacts into dedicated `outputs/` subdirectories:
+   * 📈 **Plots (`outputs/plots/`):** Interactive HTML charts (`st.iframe` compatible) and static high-DPI PNGs.
+   * 📕 **PDF Report (`outputs/reports/`):** Executive multi-page PDF generated via ReportLab.
+   * 📄 **Text Summary (`outputs/reports/`):** Formatted plain-text summary report.
+   * 📊 **Excel Dataset (`outputs/exports/`):** Styled multi-tab Excel workbook.
 
 ## 📜 License
 This project is licensed under the **GNU General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
