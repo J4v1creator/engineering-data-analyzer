@@ -2,11 +2,11 @@
 
 from datetime import date, datetime, timedelta
 import os
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-# Local Module Imports
 from config.settings import DEMAND_INDICATOR_IDS, PRICE_INDICATOR_IDS
 from src.analyzer import (
     calculate_demand_statistics,
@@ -58,8 +58,7 @@ def render_html_chart(html_path: str | None, height: int = 500) -> None:
         height (int): Height of the rendered component in pixels.
     """
     if html_path and os.path.exists(html_path):
-        with open(html_path, "r", encoding="utf-8") as f:
-            st.components.v1.html(f.read(), height=height, scrolling=True)
+        st.iframe(Path(html_path), height=height)
     else:
         st.warning("⚠️ Interactive visualization artifact is missing or unavailable.")
 
@@ -94,7 +93,7 @@ def render_demand_tab(data: dict) -> None:
     # Progressive Disclosure: Complete Statistical Breakdown
     with st.expander("📋 View Complete Demand Statistics Table"):
         stats_demand_df = pd.DataFrame(demand_stats).T
-        st.dataframe(stats_demand_df, use_container_width=True)
+        st.dataframe(stats_demand_df, width="stretch")
 
     st.divider()
 
@@ -142,8 +141,8 @@ def render_demand_tab(data: dict) -> None:
         st.divider()
 
     st.subheader("Interactive Demand Time-Series")
-    demand_paths = plot_energy_demand(df_demands)
-    render_html_chart(demand_paths.get("html"))
+    html_path = data.get("demand_html_path")
+    render_html_chart(html_path)
 
 
 def render_price_tab(data: dict) -> None:
@@ -175,13 +174,13 @@ def render_price_tab(data: dict) -> None:
     # Progressive Disclosure: Complete Statistical Breakdown
     with st.expander("📋 View Complete Price Statistics Table"):
         stats_price_df = pd.DataFrame(price_stats).T
-        st.dataframe(stats_price_df, use_container_width=True)
+        st.dataframe(stats_price_df, width="stretch")
 
     st.divider()
 
     st.subheader("Interactive Price Time-Series")
-    price_paths = plot_energy_price(df_prices)
-    render_html_chart(price_paths.get("html"))
+    html_path = data.get("price_html_path")
+    render_html_chart(html_path)
 
 
 def render_volume_and_anomalies_tab(data: dict) -> None:
@@ -208,7 +207,7 @@ def render_volume_and_anomalies_tab(data: dict) -> None:
         st.subheader("⚠️ Detected Demand Anomalies (Z-Score > 2.0)")
         if anomalies:
             df_anomalies = pd.DataFrame(anomalies)
-            st.dataframe(df_anomalies, use_container_width=True, hide_index=True)
+            st.dataframe(df_anomalies, width="stretch", hide_index=True)
         else:
             st.success("No statistical demand anomalies detected in this timeframe.")
 
@@ -240,7 +239,7 @@ def render_reports_tab(data: dict) -> None:
                         data=f.read(),
                         file_name=os.path.basename(file_path),
                         mime=mime_type,
-                        use_container_width=True,
+                        width="stretch",
                     )
 
 
@@ -310,7 +309,7 @@ if len(selected_demands) >= 2:
         st.sidebar.warning("⚠️ Select both Baseline and Comparison Model for pairwise analytics.")
 
 st.sidebar.divider()
-run_analysis = st.sidebar.button("🚀 Run Analysis", type="primary", use_container_width=True)
+run_analysis = st.sidebar.button("🚀 Run Analysis", type="primary", width="stretch")
 
 # ------------------------------------------------------------------------------
 # 4. PIPELINE EXECUTION
@@ -338,15 +337,20 @@ if run_analysis:
                 anomalies = detect_demand_anomalies(df_demands)
                 market_volume_stats = calculate_market_economic_volume(df_filtered)
 
-                # 4. Chart File Paths
+                # 4. Chart File Paths & Generation
                 chart_paths = []
+                demand_html_path = None
+                price_html_path = None
+
                 if not df_demands.empty:
                     d_paths = plot_energy_demand(df_demands)
+                    demand_html_path = d_paths.get("html")
                     if d_paths.get("png"):
                         chart_paths.append(d_paths["png"])
 
                 if not df_prices.empty:
                     p_paths = plot_energy_price(df_prices)
+                    price_html_path = p_paths.get("html")
                     if p_paths.get("png"):
                         chart_paths.append(p_paths["png"])
 
@@ -364,6 +368,8 @@ if run_analysis:
                     "comp_stats": comp_stats,
                     "anomalies": anomalies,
                     "market_volume_stats": market_volume_stats,
+                    "demand_html_path": demand_html_path,
+                    "price_html_path": price_html_path,
                     "report_path": report_path,
                     "excel_path": excel_path,
                     "pdf_path": pdf_path,
